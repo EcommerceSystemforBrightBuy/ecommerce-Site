@@ -1,0 +1,1 @@
+-- Stored Procedures: Atomic checkout, inventory management (Placeholder)

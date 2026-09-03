@@ -1,0 +1,1 @@
+-- Triggers: Stock validations, audit logs (Placeholder)

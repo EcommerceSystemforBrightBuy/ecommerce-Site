@@ -1,0 +1,1 @@
+-- Seed Data: 40+ products, 10+ categories, variants (Placeholder)

@@ -1,0 +1,1 @@
+-- DDL: Tables, FKs, indexes (Placeholder)
