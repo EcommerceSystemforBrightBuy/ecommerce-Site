@@ -2,8 +2,14 @@ const pool = require('./../config/db')
 
 const getAllProducts = async(req, res) => {
     try{
-        const [products] = await pool.execute("Select * from product");
-        res.status(200).json(products);
+        const [products] = await pool.execute(
+            'Select p.product_id,p.product_name as name,p.brand,p.description,v.price,v.sku,i.quantity_on_hand as stock, GROUP_CONCAT(DISTINCT c.category_name) as category from product p left join product_variant v on p.product_id = v.product_id and  v.is_default = True left join inventory i on v.variant_id = i.variant_id left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id where p.is_active = 1 group by p.product_id, p.product_name,p.brand,p.description,v.sku,i.quantity_on_hand');
+        
+        const formattedProducts = products.map(p => ({
+            ...p, price : p.price !== null ? parseFloat(p.price) : null
+        }))    
+        
+        res.status(200).json(formattedProducts);
     }catch(e){
         console.error(e);
         res.status(500).json({error : "Failed to fetch products"});

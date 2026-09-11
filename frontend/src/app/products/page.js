@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { PRODUCTS, CATEGORIES } from "@/data/mockData";
 import { useShop } from "@/context/ShopContext";
 import { Search, Star, Heart, SlidersHorizontal } from "lucide-react";
+
 
 export default function ProductsSearchPage() {
   const { selectedCity } = useShop();
@@ -13,6 +13,28 @@ export default function ProductsSearchPage() {
   const [inStockOnly, setInStockOnly] = useState(false);
   const [sortBy, setSortBy] = useState("featured");
   const [favorites, setFavorites] = useState({});
+  const[ products, setproducts ] = useState([]);
+  const[ loading, setloading ] = useState(true);
+  
+  useEffect(()=>{
+      fetch('http://localhost:8000/api/products')
+      .then(response => response.json())
+      .then(data =>{
+        setproducts(data);
+        setloading(false);
+      })
+  },[]);
+  
+  if(loading){
+    <p>Loading products....</p>
+  }
+
+  const categoryOptions = useMemo(() => {
+    const sample = [...new Set(products.map(p => p.category).filter(Boolean))];
+    return[
+      { id: "all", name:"All"}, ...sample.map(cat => ({id : cat, name: cat}))
+    ];
+  },[products]);
 
   const toggleFavorite = (id, e) => {
     e.preventDefault();
@@ -21,28 +43,28 @@ export default function ProductsSearchPage() {
   };
 
   const filtered = useMemo(() => {
-    return PRODUCTS.filter((item) => {
-      if (selectedCat !== "all" && !item.categories.includes(selectedCat)) {
+    return products.filter((item) => {
+      if (selectedCat !== "all" && !item.categories !== selectedCat) {
         return false;
       }
-      if (inStockOnly && !item.variants.some((v) => v.stock > 0)) {
+      if (inStockOnly && !item.stock > 0) {
         return false;
       }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesName = item.name.toLowerCase().includes(q);
         const matchesBrand = item.brand.toLowerCase().includes(q);
-        const matchesSku = item.variants.some((v) => v.sku.toLowerCase().includes(q));
+        const matchesSku = item.sku?.toLowerCase().includes(q);
         if (!matchesName && !matchesBrand && !matchesSku) return false;
       }
       return true;
     }).sort((a, b) => {
-      if (sortBy === "price-low") return a.variants[0].price - b.variants[0].price;
-      if (sortBy === "price-high") return b.variants[0].price - a.variants[0].price;
+      if (sortBy === "price-low") return a.price - b.price;
+      if (sortBy === "price-high") return b.price - a.price;
       if (sortBy === "rating") return b.rating - a.rating;
       return 0;
     });
-  }, [searchQuery, selectedCat, inStockOnly, sortBy]);
+  }, [products,searchQuery, selectedCat, inStockOnly, sortBy]);
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-8">
@@ -83,7 +105,7 @@ export default function ProductsSearchPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
           {/* Category Filter Pills */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            {CATEGORIES.map((cat) => (
+            {categoryOptions.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCat(cat.id)}
@@ -150,12 +172,11 @@ export default function ProductsSearchPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filtered.map((item) => {
-            const defaultVariant = item.variants[0];
-            const isFav = favorites[item.id];
+            const isFav = favorites[item.product_id];
             return (
               <Link
-                key={item.id}
-                href={`/products/${item.id}`}
+                key={item.product_id}
+                href={`/products/${item.product_id}`}
                 className="group flex flex-col space-y-3 cursor-pointer"
               >
                 <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#F7F7F7] border border-[#EBEBEB]">
@@ -167,7 +188,7 @@ export default function ProductsSearchPage() {
                   
                   <button
                     type="button"
-                    onClick={(e) => toggleFavorite(item.id, e)}
+                    onClick={(e) => toggleFavorite(item.product_id, e)}
                     className="absolute top-3 right-3 p-2 rounded-full text-white/90 hover:scale-110 transition-transform"
                   >
                     <Heart
@@ -194,15 +215,11 @@ export default function ProductsSearchPage() {
                   </div>
 
                   <p className="text-[#717171] text-xs">
-                    {item.brand} • SKU: {defaultVariant.sku}
-                  </p>
-
-                  <p className="text-[#717171] text-xs">
-                    {item.variants.length} variant options
+                    {item.brand} • SKU: {item.sku}
                   </p>
 
                   <div className="pt-1 flex items-baseline gap-1 text-sm font-extrabold text-[#222222]">
-                    <span>${defaultVariant.price.toFixed(2)}</span>
+                    <span>${item.price?.toFixed(2)}</span>
                     <span className="text-xs font-normal text-[#717171]">total</span>
                   </div>
                 </div>
