@@ -124,6 +124,7 @@ CREATE TABLE product (
     product_name VARCHAR(200) NOT NULL,
     brand VARCHAR(100) DEFAULT NULL,
     description TEXT DEFAULT NULL,
+    image_url VARCHAR(500) DEFAULT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_product PRIMARY KEY (product_id)

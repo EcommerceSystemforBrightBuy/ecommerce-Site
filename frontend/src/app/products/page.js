@@ -181,7 +181,7 @@ export default function ProductsSearchPage() {
               >
                 <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#F7F7F7] border border-[#EBEBEB]">
                   <img
-                    src={item.image}
+                    src={item.image_url}
                     alt={item.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
                   />
