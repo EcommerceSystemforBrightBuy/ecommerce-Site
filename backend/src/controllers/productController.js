@@ -3,7 +3,7 @@ const pool = require('./../config/db')
 const getAllProducts = async(req, res) => {
     try{
         const [products] = await pool.execute(
-            'Select p.product_id,p.product_name as name,p.brand,p.description,p.image_url,v.price,v.sku,i.quantity_on_hand as stock, GROUP_CONCAT(DISTINCT c.category_name) as category from product p left join product_variant v on p.product_id = v.product_id and  v.is_default = True left join inventory i on v.variant_id = i.variant_id left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id where p.is_active = 1 group by p.product_id, p.product_name,p.brand,p.description,v.sku,i.quantity_on_hand');
+            'Select p.product_id,p.product_name as name,p.brand,p.description,p.image_url,v.price,v.sku,i.quantity_on_hand as stock from product p left join product_variant v on p.product_id = v.product_id and  v.is_default = True left join inventory i on v.variant_id = i.variant_id where p.is_active = 1');
         
         const formattedProducts = products.map(p => ({
             ...p, price : p.price !== null ? parseFloat(p.price) : null
@@ -19,13 +19,26 @@ const getAllProducts = async(req, res) => {
 const getProductByID = async(req, res) =>{
     try{
         //Using prepare statement to prevent data from SQL injection kind of issues.
-        const [product] = await pool.execute("Select * from product where product_id = ?", [req.params.id]); 
+        const [productRows] = await pool.execute("Select * from product where product_id = ?", [req.params.id]); 
         
-        if(product.length === 0){
+        if(productRows.length === 0){
             return res.status(404).json({error : "Product not found"});
         }    
 
-        res.status(200).json(product[0]); //as it return row and field, we only need data here.
+        const [variants] = await pool.execute("Select v.variant_id,v.variant_name,v.price,v.sku,i.quantity_on_hand as stock from product_variant v left join inventory i on v.variant_id = i.variant_id where v.product_id = ?",
+                                              [req.params.id]
+                                             );
+
+        //Adding attributes to variants
+        for(const v of variants){
+            const [var_attributes] = await pool.execute("Select attribute_name,attribute_value from product_attribute where variant_id = ?",
+                                                        [v.variant_id]
+            );
+
+            v.attributes = var_attributes;
+        }         
+
+        res.status(200).json({...productRows[0], variants}); //as it return row and field, we only need data here.
     }catch(e){
         console.error(e);
         res.status(500).json({error : "Failed to fetch product"});

@@ -27,7 +27,8 @@ export default function ProductDetailPage({ params }) {
   const router = useRouter();
   const { selectedCity, setSelectedCity, addToCart } = useShop();
 
-  const product = PRODUCTS.find((p) => p.id === unwrappedParams.id) || PRODUCTS[0];
+  const [products, setproducts] = useState([]);
+  const [loading, setloading] = useState(true);
   const [variantIndex, setVariantIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [addedNotice, setAddedNotice] = useState(false);
@@ -36,6 +37,14 @@ export default function ProductDetailPage({ params }) {
   const activeVariant = product.variants[variantIndex] || product.variants[0];
   const isInStock = activeVariant.stock > 0;
   const estimate = calculateDeliveryEstimate(selectedCity.name, isInStock);
+
+ useEffect(() =>(
+    fetch("http://localhost:8000/api/products:id")
+      .then(response => response.json())
+      .then(data => {
+        setproducts(data),
+        setloading(false)
+})));
 
   const handleAddToCart = () => {
     addToCart(product, activeVariant, quantity);
