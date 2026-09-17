@@ -19,26 +19,30 @@ const getAllProducts = async(req, res) => {
 const getProductByID = async(req, res) =>{
     try{
         //Using prepare statement to prevent data from SQL injection kind of issues.
-        const [productRows] = await pool.execute("Select * from product where product_id = ?", [req.params.id]); 
+        const [productRows] = await pool.execute("Select product_id, product_name as name, brand, description, image_url, is_active from product where product_id = ?", [req.params.id]); 
         
         if(productRows.length === 0){
             return res.status(404).json({error : "Product not found"});
         }    
 
-        const [variants] = await pool.execute("Select v.variant_id,v.variant_name,v.price,v.sku,i.quantity_on_hand as stock from product_variant v left join inventory i on v.variant_id = i.variant_id where v.product_id = ?",
+        const [temp_variants] = await pool.execute("Select v.variant_id as id,v.variant_name as name,v.price,v.sku,i.quantity_on_hand as stock from product_variant v left join inventory i on v.variant_id = i.variant_id where v.product_id = ?",
                                               [req.params.id]
                                              );
 
         //Adding attributes to variants
-        for(const v of variants){
+        for(const v of temp_variants){
             const [var_attributes] = await pool.execute("Select attribute_name,attribute_value from product_attribute where variant_id = ?",
-                                                        [v.variant_id]
+                                                        [v.id]
             );
 
             v.attributes = var_attributes;
-        }         
+        }      
+        
+        const variants = temp_variants.map(v =>({
+            ...v, price: v.price != null ? parseFloat(v.price) : null
+        }));
 
-        res.status(200).json({...productRows[0], variants}); //as it return row and field, we only need data here.
+        res.status(200).json({...productRows[0], variants}); //as productRows return row and field, we only need data here and the variants.
     }catch(e){
         console.error(e);
         res.status(500).json({error : "Failed to fetch product"});
