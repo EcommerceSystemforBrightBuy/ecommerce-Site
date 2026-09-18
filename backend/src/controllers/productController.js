@@ -3,7 +3,7 @@ const pool = require('./../config/db')
 const getAllProducts = async(req, res) => {
     try{
         const [products] = await pool.execute(
-            'Select p.product_id,p.product_name as name,p.brand,p.description,p.image_url,v.price,v.sku,i.quantity_on_hand as stock from product p left join product_variant v on p.product_id = v.product_id and  v.is_default = True left join inventory i on v.variant_id = i.variant_id where p.is_active = 1');
+            'Select p.product_id,p.product_name as name,p.brand, round(AVG(f.rating), 1) as rating, p.description,p.image_url,v.price,v.sku,i.quantity_on_hand as stock from product p left join product_variant v on p.product_id = v.product_id and  v.is_default = True left join inventory i on v.variant_id = i.variant_id left join product_feedback f on p.product_id = f.product_id where p.is_active = 1 GROUP BY p.product_id, p.product_name, p.brand, p.description, p.image_url, v.price, v.sku, i.quantity_on_hand');
         
         const formattedProducts = products.map(p => ({
             ...p, price : p.price !== null ? parseFloat(p.price) : null
@@ -19,7 +19,7 @@ const getAllProducts = async(req, res) => {
 const getProductByID = async(req, res) =>{
     try{
         //Using prepare statement to prevent data from SQL injection kind of issues.
-        const [productRows] = await pool.execute("Select product_id, product_name as name, brand, description, image_url, is_active from product where product_id = ?", [req.params.id]); 
+        const [productRows] = await pool.execute("Select p.product_id, p.product_name as name, p.brand, round(AVG(f.rating), 1) as rating, p.description, p.image_url, p.is_active from product p left join product_feedback f on p.product_id = f.product_id where p.product_id = ?", [req.params.id]); 
         
         if(productRows.length === 0){
             return res.status(404).json({error : "Product not found"});
@@ -42,7 +42,13 @@ const getProductByID = async(req, res) =>{
             ...v, price: v.price != null ? parseFloat(v.price) : null
         }));
 
-        res.status(200).json({...productRows[0], variants}); //as productRows return row and field, we only need data here and the variants.
+        
+        //Taking categories of the product 
+        const [categories] =await pool.execute("Select c.category_name from product p left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id where p.product_id = ?",
+                                             [req.params.id]
+        )
+
+        res.status(200).json({...productRows[0], categories, variants}); //as productRows return row and field, we only need data here and the variants.
     }catch(e){
         console.error(e);
         res.status(500).json({error : "Failed to fetch product"});

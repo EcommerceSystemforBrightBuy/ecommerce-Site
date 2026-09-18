@@ -132,7 +132,7 @@ export default function AdminProductsPage() {
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
                         <img
-                          src={p.image}
+                          src={p.image_url}
                           alt={p.name}
                           className="w-12 h-12 rounded-xl object-cover border border-[#EBEBEB] shrink-0"
                         />
@@ -234,7 +234,7 @@ export default function AdminProductsPage() {
 
             <div className="flex items-center gap-4">
               <img
-                src={viewProduct.image}
+                src={viewProduct.image_url}
                 alt={viewProduct.name}
                 className="w-20 h-20 rounded-2xl object-cover border border-[#DDDDDD]"
               />
