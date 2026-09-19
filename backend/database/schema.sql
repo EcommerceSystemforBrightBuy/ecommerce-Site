@@ -179,7 +179,7 @@ CREATE TABLE product_feedback (
     product_id VARCHAR(50) NOT NULL,
     customer_id VARCHAR(50) NOT NULL,
     rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
-    comment TEXT DEFAULT NULL,
+    review TEXT DEFAULT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_feedback PRIMARY KEY (feedback_id),
     CONSTRAINT fk_feedback_product FOREIGN KEY (product_id) REFERENCES product (product_id) ON DELETE CASCADE ON UPDATE CASCADE,

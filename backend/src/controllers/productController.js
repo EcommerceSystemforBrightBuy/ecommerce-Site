@@ -19,7 +19,7 @@ const getAllProducts = async(req, res) => {
 const getProductByID = async(req, res) =>{
     try{
         //Using prepare statement to prevent data from SQL injection kind of issues.
-        const [productRows] = await pool.execute("Select p.product_id, p.product_name as name, p.brand, round(AVG(f.rating), 1) as rating, p.description, p.image_url, p.is_active from product p left join product_feedback f on p.product_id = f.product_id where p.product_id = ?", [req.params.id]); 
+        const [productRows] = await pool.execute("Select p.product_id, p.product_name as name, p.brand, round(AVG(f.rating), 1) as rating, count(f.feedback_id) as reviewCount, p.description, p.image_url, p.is_active from product p left join product_feedback f on p.product_id = f.product_id where p.product_id = ?", [req.params.id]); 
         
         if(productRows.length === 0){
             return res.status(404).json({error : "Product not found"});
@@ -155,10 +155,27 @@ const deleteProduct =async(req, res) =>{
     }
 }
 
+const getAllCategories = async (req, res)=>{
+    try {
+        const [category] = await pool.execute("Select category_id as id, category_name as name from category order by name");
+        
+        if(category.length === 0){
+            return res.status(404).json({"message": "Categories not Found..!"});
+        }
+
+        res.status(200).json(category);
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({error : "Failed to fetch categories"});
+    }
+
+};
+
 module.exports = {
     getAllProducts,
     getProductByID,
     createProduct,
     updateProduct,
-    deleteProduct
+    deleteProduct,
+    getAllCategories
 };
