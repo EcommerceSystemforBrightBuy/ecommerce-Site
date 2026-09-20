@@ -13,6 +13,8 @@ DROP TABLE IF EXISTS inventory_transaction;
 
 DROP TABLE IF EXISTS inventory;
 
+DROP TABLE IF EXISTS product_feedback;
+
 DROP TABLE IF EXISTS product_attribute;
 
 DROP TABLE IF EXISTS product_category;

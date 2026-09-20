@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import CategoryRibbon from "@/components/CategoryRibbon";
-import { PRODUCTS } from "@/data/mockData";
 import { useShop } from "@/context/ShopContext";
 import { Star, Heart, ArrowRight } from "lucide-react";
 
@@ -11,17 +10,36 @@ export default function HomePage() {
   const { selectedCity } = useShop();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [favorites, setFavorites] = useState({});
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() =>{
+     fetch("http://localhost:8000/api/products")
+     .then(response => response.json())
+     .then(data =>{
+      setProducts(data)
+      setLoading(false)
+     })
+     .catch(e =>{
+        console.error("Error fetching products:", e);
+        setLoading(false);
+      }) 
+    },[]);
+    
+    const filteredProducts = useMemo(() => {
+      if (selectedCategory === "all") return products;
+      return products.filter((p) => p.categories.includes(selectedCategory));
+    }, [selectedCategory, products]);    
+
+  if(loading){
+    return <p>Products loading...!</p>
+  }
+  
   const toggleFavorite = (id, e) => {
     e.preventDefault();
     e.stopPropagation();
     setFavorites((prev) => ({ ...prev, [id]: !prev[id] }));
   };
-
-  const filteredProducts = useMemo(() => {
-    if (selectedCategory === "all") return PRODUCTS;
-    return PRODUCTS.filter((p) => p.categories.includes(selectedCategory));
-  }, [selectedCategory]);
 
   return (
     <main className="min-h-screen bg-white pb-16">
@@ -58,12 +76,11 @@ export default function HomePage() {
         {/* Product Cards Grid (Airbnb Style) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-2">
           {filteredProducts.map((product) => {
-            const defaultVariant = product.variants[0];
-            const isFav = favorites[product.id];
+            const isFav = favorites[product.product_id];
             return (
               <Link
-                key={product.id}
-                href={`/products/${product.id}`}
+                key={product.product_id}
+                href={`/products/${product.product_id}`}
                 className="group flex flex-col space-y-3 cursor-pointer"
               >
                 {/* Airbnb Image Box */}
@@ -77,7 +94,7 @@ export default function HomePage() {
                   {/* Heart Wishlist Overlay */}
                   <button
                     type="button"
-                    onClick={(e) => toggleFavorite(product.id, e)}
+                    onClick={(e) => toggleFavorite(product.product_id, e)}
                     className="absolute top-3 right-3 p-2 rounded-full text-white/90 hover:scale-110 transition-transform"
                     aria-label="Save to wishlist"
                   >
@@ -107,7 +124,7 @@ export default function HomePage() {
                   </div>
 
                   <p className="text-[#717171] text-xs">
-                    {product.brand} • SKU: {defaultVariant.sku}
+                    {product.brand} • SKU: {product.sku}
                   </p>
 
                   <p className="text-[#717171] text-xs">
@@ -115,7 +132,7 @@ export default function HomePage() {
                   </p>
 
                   <div className="pt-1 flex items-baseline gap-1 text-sm font-extrabold text-[#222222]">
-                    <span>${defaultVariant.price.toFixed(2)}</span>
+                    <span>${product.price.toFixed(2)}</span>
                     <span className="text-xs font-normal text-[#717171]">total</span>
                   </div>
                 </div>
