@@ -3,18 +3,44 @@ const pool = require('./../config/db')
 const getAllProducts = async(req, res) => {
     try{
         const [products] = await pool.execute(
-            'Select p.product_id,p.product_name as name,p.brand, round(AVG(f.rating), 1) as rating, p.description,p.image_url,v.price,v.sku,i.quantity_on_hand as stock,GROUP_CONCAT(DISTINCT c.category_name) as category from product p left join product_variant v on p.product_id = v.product_id and  v.is_default = True left join inventory i on v.variant_id = i.variant_id left join product_feedback f on p.product_id = f.product_id left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id where p.is_active = 1 GROUP BY p.product_id, p.product_name, p.brand, p.description, p.image_url, v.price, v.sku, i.quantity_on_hand');
+            'Select p.product_id,p.product_name as name,p.brand, round(AVG(f.rating), 1) as rating, count(f.feedback_id) as reviewCount, p.description,p.image_url,v.price,v.sku,i.quantity_on_hand as stock,GROUP_CONCAT(DISTINCT c.category_name) as categories from product p left join product_variant v on p.product_id = v.product_id and  v.is_default = True left join inventory i on v.variant_id = i.variant_id left join product_feedback f on p.product_id = f.product_id left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id where p.is_active = 1 GROUP BY p.product_id, p.product_name, p.brand, p.description, p.image_url, v.price, v.sku, i.quantity_on_hand');
         
         const formattedProducts = products.map(p => ({
             ...p, price : p.price !== null ? parseFloat(p.price) : null
         }))    
-        
-        res.status(200).json(formattedProducts);
+
+        res.status(200).json(formattedProducts);        
     }catch(e){
         console.error(e);
         res.status(500).json({error : "Failed to fetch products"});
     }
 };
+
+const getAllProductswithVariants = async(req,res) =>{
+    try {
+        const [products] = await pool.execute(
+            'Select p.product_id,p.product_name as name, p.brand, v.price, round(AVG(f.rating), 1) as rating,count(f.feedback_id) as reviewCount,p.description, p.image_url, GROUP_CONCAT(DISTINCT c.category_name) as categories from product p left join product_variant v on p.product_id = v.product_id and v.is_default = True left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id left join product_feedback f on p.product_id = f.product_id where p.is_active = 1 GROUP BY p.product_id, p.product_name, p.brand, p.description, p.image_url'
+        );
+    
+        const formattedProducts = products.map(p => ({
+            ...p, variants : typeof p.variants === "string" ? JSON.parse(p.variants) : p.variants
+        })) 
+
+        const [temp_variants] = await pool.execute("Select v.product_id, v.variant_id, v.variant_name, v.sku, v.price, i.quantity_on_hand as stock from product_variant v left join inventory i on v.variant_id = i.variant_id"
+        );
+
+        const final_products = formattedProducts.map(p => {
+            const variants = temp_variants.filter(variant => variant.product_id === p.product_id);
+
+            return{ ...p, variants}
+        });
+            
+        res.status(200).json(final_products);        
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({error : "Failed to fetch products"});
+    }
+}
 
 const getProductByID = async(req, res) =>{
     try{
@@ -173,6 +199,7 @@ const getAllCategories = async (req, res)=>{
 
 module.exports = {
     getAllProducts,
+    getAllProductswithVariants,
     getProductByID,
     createProduct,
     updateProduct,

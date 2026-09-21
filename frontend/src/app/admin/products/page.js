@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { PRODUCTS } from "@/data/mockData";
 import {
   Package,
   Plus,
@@ -17,7 +16,6 @@ import {
 } from "lucide-react";
 
 export default function AdminProductsPage() {
-  const [productList, setProductList] = useState(PRODUCTS);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCat, setSelectedCat] = useState("all");
 
@@ -25,8 +23,23 @@ export default function AdminProductsPage() {
   const [viewProduct, setViewProduct] = useState(null);
   const [deleteProduct, setDeleteProduct] = useState(null);
   const [actionSuccess, setActionSuccess] = useState("");
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredProducts = productList.filter((p) => {
+  useEffect(() => {
+    fetch("http://localhost:8000/api/products/admin")
+      .then((response) => response.json())
+      .then((data) => {
+        setProducts(data);
+        setLoading(false);
+      })
+      .catch((e) => {
+        console.error("Error fetching products:", e);
+        setLoading(false);
+      })
+  }, []);
+
+  const filteredProducts = products.filter((p) => {
     if (selectedCat !== "all" && !p.categories.includes(selectedCat)) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -40,11 +53,15 @@ export default function AdminProductsPage() {
 
   const handleDeleteConfirm = () => {
     if (!deleteProduct) return;
-    setProductList((prev) => prev.filter((item) => item.id !== deleteProduct.id));
+    setProducts((prev) => prev.filter((item) => item.product_id !== deleteProduct.product_id));
     setActionSuccess(`Product "${deleteProduct.name}" removed from Texas database.`);
     setDeleteProduct(null);
     setTimeout(() => setActionSuccess(""), 3000);
   };
+
+  if (loading) {
+    return <p>Products loading...!</p>;
+  }
 
   return (
     <div className="space-y-6">
@@ -126,9 +143,11 @@ export default function AdminProductsPage() {
               {filteredProducts.map((p) => {
                 const totalStock = p.variants.reduce((acc, v) => acc + v.stock, 0);
                 const defaultVariant = p.variants[0];
+                const productCategories = p.categories.split(",").map((c) => c.trim());
+                console.log("Product Categories:", productCategories);
 
                 return (
-                  <tr key={p.id} className="hover:bg-[#F7F7F7] transition-colors">
+                  <tr key={p.product_id} className="hover:bg-[#F7F7F7] transition-colors">
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
                         <img
@@ -145,7 +164,7 @@ export default function AdminProductsPage() {
 
                     <td className="py-4 px-4">
                       <div className="flex flex-wrap gap-1">
-                        {p.categories.map((c) => (
+                        {productCategories.map((c) => (
                           <span
                             key={c}
                             className="px-2 py-0.5 rounded-full bg-[#F7F7F7] text-[#222222] border border-[#DDDDDD] text-[10px] font-bold uppercase"
@@ -168,7 +187,7 @@ export default function AdminProductsPage() {
                     </td>
 
                     <td className="py-4 px-4 font-bold text-[#222222] font-mono">
-                      ${defaultVariant.price.toFixed(2)}
+                      ${defaultVariant.price}
                     </td>
 
                     <td className="py-4 px-4">
@@ -193,7 +212,7 @@ export default function AdminProductsPage() {
                           <Eye className="w-4 h-4" />
                         </button>
                         <Link
-                          href={`/admin/products/${p.id}/edit`}
+                          href={`/admin/products/${p.product_id}/edit`}
                           className="p-2 rounded-xl hover:bg-[#EBEBEB] text-[#717171] hover:text-[#222222]"
                           title="Edit Product"
                         >
@@ -254,7 +273,7 @@ export default function AdminProductsPage() {
               <div className="space-y-1.5 max-h-40 overflow-y-auto">
                 {viewProduct.variants.map((v) => (
                   <div
-                    key={v.id}
+                    key={v.variant_id}
                     className="p-2.5 rounded-xl bg-[#F7F7F7] border border-[#DDDDDD] flex items-center justify-between text-xs"
                   >
                     <div>
@@ -262,7 +281,7 @@ export default function AdminProductsPage() {
                       <div className="text-[10px] font-mono text-[#717171]">SKU: {v.sku}</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-bold font-mono text-[#222222]">${v.price.toFixed(2)}</div>
+                      <div className="font-bold font-mono text-[#222222]">${v.price}</div>
                       <div className="text-[10px] text-[#717171]">{v.stock} in stock</div>
                     </div>
                   </div>
