@@ -25,23 +25,19 @@ export default function ProductsSearchPage() {
       })
   },[]);
   
-  if(loading){
-    return<p>Loading products....</p>
-  }
-
   const categoryOptions = useMemo(() => {
     const sample = [...new Set(products.map(p => p.categories).filter(Boolean))];
     return[
       { id: "all", name:"All"}, ...sample.map(cat => ({id : cat, name: cat}))
     ];
   },[products]);
-
+  
   const toggleFavorite = (id, e) => {
     e.preventDefault();
     e.stopPropagation();
     setFavorites((prev) => ({ ...prev, [id]: !prev[id] }));
   };
-
+  
   const filtered = useMemo(() => {
     return products.filter((item) => {
       if (selectedCat !== "all" && !item.categories?.includes(selectedCat)) {
@@ -65,7 +61,11 @@ export default function ProductsSearchPage() {
       return 0;
     });
   }, [products,searchQuery, selectedCat, inStockOnly, sortBy]);
-
+  
+  if(loading){
+    return<p>Loading products....</p>
+  }
+  
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-8">
       {/* Header Search Bar Area */}

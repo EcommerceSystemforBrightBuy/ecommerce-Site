@@ -51,12 +51,27 @@ export default function AdminProductsPage() {
     return true;
   });
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async(e) => {
     if (!deleteProduct) return;
-    setProducts((prev) => prev.filter((item) => item.product_id !== deleteProduct.product_id));
-    setActionSuccess(`Product "${deleteProduct.name}" removed from Texas database.`);
-    setDeleteProduct(null);
-    setTimeout(() => setActionSuccess(""), 3000);
+
+    try {
+        const response = await fetch(`http://localhost:8000/api/products/${deleteProduct.product_id}`,{
+          method : 'DELETE',
+        })
+
+        if(!response.ok){
+          throw new Error("Failed to update product");
+        }
+
+        setProducts((prev) => prev.filter((item) => item.product_id !== deleteProduct.product_id));
+        setActionSuccess(`Product "${deleteProduct.name}" removed from Texas database.`);
+        setDeleteProduct(null);
+        setTimeout(() => setActionSuccess(""), 3000);
+
+    } catch (e) {
+        console.error("Delete failed:", e);
+        alert("Failed to delete product. Please try again.");
+    }
   };
 
   if (loading) {
