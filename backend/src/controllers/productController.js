@@ -19,7 +19,7 @@ const getAllProducts = async(req, res) => {
 const getAllProductswithVariants = async(req,res) =>{
     try {
         const [products] = await pool.execute(
-            'Select p.product_id,p.product_name as name, p.brand, v.price, round(AVG(f.rating), 1) as rating,count(f.feedback_id) as reviewCount,p.description, p.image_url, GROUP_CONCAT(DISTINCT c.category_name) as categories from product p left join product_variant v on p.product_id = v.product_id and v.is_default = True left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id left join product_feedback f on p.product_id = f.product_id where p.is_active = 1 GROUP BY p.product_id, p.product_name, p.brand, p.description, p.image_url'
+            'Select p.product_id,p.product_name as name, p.brand, v.price, p.badge, round(AVG(f.rating), 1) as rating,count(f.feedback_id) as reviewCount,p.description, p.image_url, GROUP_CONCAT(DISTINCT c.category_name) as categories from product p left join product_variant v on p.product_id = v.product_id and v.is_default = True left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id left join product_feedback f on p.product_id = f.product_id where p.is_active = 1 GROUP BY p.product_id, p.product_name, p.brand, p.description, p.image_url'
         );
     
         const formattedProducts = products.map(p => ({
@@ -45,20 +45,20 @@ const getAllProductswithVariants = async(req,res) =>{
 const getProductByID = async(req, res) =>{
     try{
         //Using prepare statement to prevent data from SQL injection kind of issues.
-        const [productRows] = await pool.execute("Select p.product_id, p.product_name as name, p.brand, round(AVG(f.rating), 1) as rating, count(f.feedback_id) as reviewCount, p.description, p.image_url, p.is_active from product p left join product_feedback f on p.product_id = f.product_id where p.product_id = ?", [req.params.id]); 
+        const [productRows] = await pool.execute("Select p.product_id, p.product_name as name, p.brand, p.badge, round(AVG(f.rating), 1) as rating, count(f.feedback_id) as reviewCount, p.description, p.image_url from product p left join product_feedback f on p.product_id = f.product_id where p.product_id = ?", [req.params.id]); 
         
         if(productRows.length === 0){
             return res.status(404).json({error : "Product not found"});
         }    
 
-        const [temp_variants] = await pool.execute("Select v.variant_id as id,v.variant_name as name,v.price,v.sku,i.quantity_on_hand as stock from product_variant v left join inventory i on v.variant_id = i.variant_id where v.product_id = ?",
+        const [temp_variants] = await pool.execute("Select v.variant_id,v.variant_name,v.price,v.sku,i.quantity_on_hand as stock from product_variant v left join inventory i on v.variant_id = i.variant_id where v.product_id = ?",
                                               [req.params.id]
                                              );
 
         //Adding attributes to variants
         for(const v of temp_variants){
             const [var_attributes] = await pool.execute("Select attribute_name,attribute_value from product_attribute where variant_id = ?",
-                                                        [v.id]
+                                                        [v.variant_id]
             );
 
             v.attributes = var_attributes;
@@ -117,9 +117,10 @@ const createProduct = async(req, res) => {
 const updateProduct = async(req, res) =>{
     const {
         up_product_name,
-        up_brand,
-        up_description,
-        up_is_active
+        up_product_brand,
+        up_product_badge,
+        up_product_description,
+        up_variants
     } = req.body;
 
     try{
@@ -133,28 +134,56 @@ const updateProduct = async(req, res) =>{
             product[0].product_name = up_product_name
         }
         
-        if(up_brand !== undefined){
-            product[0].brand = up_brand
+        if(up_product_brand !== undefined){
+            product[0].brand = up_product_brand
         }
         
-        if(up_description !== undefined){
-            product[0].description = up_description
+        if(up_product_badge !== undefined){
+            product[0].badge = up_product_badge
+        }
+
+        if(up_product_description !== undefined){
+            product[0].description = up_product_description
         }
         
-        if(up_is_active !== undefined){
-            product[0].is_active = up_is_active
+        if(up_variants !== undefined){
+            product[0].variants = up_variants
         }
 
         await pool.execute(
-            "Update product set product_name = ?, brand = ?, description = ?, is_active = ? where product_id = ?" ,
+            "Update product set product_name = ?, brand = ?, badge = ?,description = ? where product_id = ?" ,
             [
                 product[0].product_name ?? null,
                 product[0].brand ?? null,
+                product[0].badge ?? null,
                 product[0].description ?? null,
-                product[0].is_active ?? null,
                 req.params.id
             ]
         )
+
+        if(up_variants && Array.isArray(up_variants)){
+            for(const v of up_variants){
+                await pool.execute(
+                    "Update product_variant set variant_name = ?, price = ?, sku = ? where product_id = ? and variant_id = ?",
+                    [ 
+                        v.variant_name,
+                        v.price,
+                        v.sku,
+                        req.params.id,
+                        v.variant_id
+                    ]
+                )
+
+                await pool.execute(
+                    "Update inventory set quantity_on_hand = ? where variant_id = ?",
+                    [
+                        v.stock,
+                        v.variant_id
+                    ]
+                )
+            }
+        }
+
         res.status(200).json({message :"Product updated successfully"});
     }catch(e){
         console.error(e);

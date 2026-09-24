@@ -88,7 +88,7 @@ export default function TopSellingProductsReportPage() {
 
                   <td className="py-4 px-4">
                     <span className="px-2.5 py-1 rounded-full bg-[#F7F7F7] text-[#222222] border border-[#DDDDDD] text-[10px] font-bold">
-                      {p.category}
+                      {p.categories.join(", ")}
                     </span>
                   </td>
 

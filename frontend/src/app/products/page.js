@@ -26,11 +26,11 @@ export default function ProductsSearchPage() {
   },[]);
   
   if(loading){
-    <p>Loading products....</p>
+    return<p>Loading products....</p>
   }
 
   const categoryOptions = useMemo(() => {
-    const sample = [...new Set(products.map(p => p.category).filter(Boolean))];
+    const sample = [...new Set(products.map(p => p.categories).filter(Boolean))];
     return[
       { id: "all", name:"All"}, ...sample.map(cat => ({id : cat, name: cat}))
     ];
@@ -44,10 +44,10 @@ export default function ProductsSearchPage() {
 
   const filtered = useMemo(() => {
     return products.filter((item) => {
-      if (selectedCat !== "all" && !item.categories !== selectedCat) {
+      if (selectedCat !== "all" && !item.categories?.includes(selectedCat)) {
         return false;
       }
-      if (inStockOnly && !item.stock > 0) {
+      if (inStockOnly && (!item.stock) > 0) {
         return false;
       }
       if (searchQuery.trim()) {

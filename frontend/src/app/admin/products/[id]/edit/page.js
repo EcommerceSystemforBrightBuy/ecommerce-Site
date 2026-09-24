@@ -1,32 +1,76 @@
 "use client";
 
-import React, { useState, use } from "react";
+import React, { useState, use, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PRODUCTS } from "@/data/mockData";
 import { ArrowLeft, Save, Warehouse } from "lucide-react";
 
 export default function EditProductPage({ params }) {
   const unwrappedParams = use(params);
   const router = useRouter();
+  const [product, setProduct] = useState(null);
+  const [loading ,setLoading] = useState(true);
 
-  const product = PRODUCTS.find((p) => p.id === unwrappedParams.id) || PRODUCTS[0];
+  //product_details
+  const [name, setName] = useState("");
+  const [brand, setBrand] = useState("");
+  const [description, setDescription] = useState("");
+  const [badge, setBadge] = useState("FEATURED");
+  const [variants, setVariants] = useState([]);
 
-  const [name, setName] = useState(product.name);
-  const [brand, setBrand] = useState(product.brand);
-  const [description, setDescription] = useState(product.description);
-  const [badge, setBadge] = useState(product.badge || "FEATURED");
-  const [variants, setVariants] = useState([...product.variants]);
+  useEffect(()=>{
+    fetch(`http://localhost:8000/api/products/${unwrappedParams.id}`)
+    .then(response => response.json())
+    .then(data => {
+      setProduct(data);
+      setLoading(false);
+      setName(data.name);
+      setBrand(data.brand);
+      setDescription(data.description);
+      setVariants(data.variants);
+      setBadge(data.badge || " ");
+    })
+    .catch((e) =>{
+        console.error("error:",e);
+        setLoading(false);
+    })
+  },[unwrappedParams.id]);
+
+  if(loading){
+    return <p>Product loading...!</p>
+  }
 
   const updateVariant = (id, field, val) => {
     setVariants((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, [field]: val } : v))
+      prev.map((v) => (v.variant_id === id ? { ...v, [field]: val } : v))
     );
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    router.push("/admin/products");
+
+    try {
+        const response = await fetch(`http://localhost:8000/api/products/${unwrappedParams.id}`,{
+          method : 'PUT',
+          headers : {'Content-type' :'application/json'},
+          body : JSON.stringify({
+            up_product_name : name,
+            up_product_brand : brand,
+            up_product_badge : badge,
+            up_product_description : description,
+            up_variants : variants
+          })
+        })
+
+        if(!response.ok){
+          throw new Error("Failed to update product");
+        }
+
+        router.push("/admin/products");
+    } catch (e) {
+        console.error("Update failed:", e);
+        alert("Failed to update product. Please try again.");
+    }
   };
 
   return (
@@ -94,13 +138,13 @@ export default function EditProductPage({ params }) {
 
           <div className="space-y-3">
             {variants.map((v) => (
-              <div key={v.id} className="p-4 rounded-2xl border border-[#DDDDDD] bg-[#F7F7F7] grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div key={v.variant_id} className="p-4 rounded-2xl border border-[#DDDDDD] bg-[#F7F7F7] grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-[#717171] text-[11px] mb-1 font-bold">Variant</label>
                   <input
                     type="text"
-                    value={v.name}
-                    onChange={(e) => updateVariant(v.id, "name", e.target.value)}
+                    value={v.variant_name}
+                    onChange={(e) => updateVariant(v.variant_id, "name", e.target.value)}
                     className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs text-[#222222]"
                   />
                 </div>
@@ -110,7 +154,7 @@ export default function EditProductPage({ params }) {
                   <input
                     type="text"
                     value={v.sku}
-                    onChange={(e) => updateVariant(v.id, "sku", e.target.value)}
+                    onChange={(e) => updateVariant(v.variant_id, "sku", e.target.value)}
                     className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                   />
                 </div>
@@ -121,7 +165,7 @@ export default function EditProductPage({ params }) {
                     type="number"
                     step="0.01"
                     value={v.price}
-                    onChange={(e) => updateVariant(v.id, "price", parseFloat(e.target.value))}
+                    onChange={(e) => updateVariant(v.variant_id, "price", parseFloat(e.target.value))}
                     className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                   />
                 </div>
@@ -131,7 +175,7 @@ export default function EditProductPage({ params }) {
                   <input
                     type="number"
                     value={v.stock}
-                    onChange={(e) => updateVariant(v.id, "stock", parseInt(e.target.value, 10))}
+                    onChange={(e) => updateVariant(v.variant_id, "stock", parseInt(e.target.value, 10))}
                     className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                   />
                 </div>
