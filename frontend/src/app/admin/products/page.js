@@ -66,7 +66,7 @@ export default function AdminProductsPage() {
         setProducts((prev) => prev.filter((item) => item.product_id !== deleteProduct.product_id));
         setActionSuccess(`Product "${deleteProduct.name}" removed from Texas database.`);
         setDeleteProduct(null);
-        setTimeout(() => setActionSuccess(""), 3000);
+        setTimeout(() => setActionSuccess("Product Delete Successfully"), 3000);
 
     } catch (e) {
         console.error("Delete failed:", e);
@@ -158,8 +158,7 @@ export default function AdminProductsPage() {
               {filteredProducts.map((p) => {
                 const totalStock = p.variants.reduce((acc, v) => acc + v.stock, 0);
                 const defaultVariant = p.variants[0];
-                const productCategories = p.categories.split(",").map((c) => c.trim());
-                console.log("Product Categories:", productCategories);
+                const productCategories = p.categories && Array.isArray(p.categories) ? p.categories : (p.categories ? p.categories.split(",") : []);
 
                 return (
                   <tr key={p.product_id} className="hover:bg-[#F7F7F7] transition-colors">

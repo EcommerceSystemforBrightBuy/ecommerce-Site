@@ -83,34 +83,107 @@ const getProductByID = async(req, res) =>{
 
 const createProduct = async(req, res) => {
     const {
-           product_id,
            product_name,
            brand,
+           badge,
+           category,
+           image_url,
            description,
-           is_active,
+           variants,
     } = req.body;
 
-    if(!product_name || !product_id){
-        return res.status(400).json({error : "product_id and product_name are required"});
+    const [row] = await pool.execute(
+        "Select product_id from product order by product_id desc limit 1"
+    );
+    
+    if(!product_name){
+        return res.status(400).json({error : "product_name is required"});
     }
     
+    //Generating product id
+    let product_id = ''
+
+    const [rows] = await pool.execute(
+        "Select max(cast(substring(product_id,4) as unsigned)) as last_num from product"
+    );
+    
+    const lastnum = rows[0].last_num || 0;
+    product_id = `PRD${String(lastnum + 1).padStart(3,"0")}`; 
+
+    const Connection = await pool.getConnection();
+    
     try{
-        await pool.execute(
-            "Insert into product (product_id, product_name, brand, description, is_active, created_at) values (?,?,?,?,?,?)",
+        await Connection.beginTransaction(); //Using transaction for keep ACID property
+
+        await Connection.execute(
+            "Insert into product (product_id, product_name, brand, badge, image_url, description, created_at) values (?,?,?,?,?,?,?)",
             [   
                 product_id, 
                 product_name, 
                 brand, 
+                badge,
+                image_url,
                 description, 
-                is_active, 
                 new Date() // Catching the time when this action is executed
             ]
         );
+        
+        //Inserting category
+        await Connection.execute(
+            "Insert into product_category (product_id, category_id) select ?, category_id from category where category_name = ?",
+            [
+                product_id,
+                category
+            ]
+        )
+
+        //Inserting variants
+        if(variants.length !== 0){
+            let next_num = 1;
+            const [var_row] = await pool.execute(
+                "Select max(cast(substring(variant_id,4) as unsigned)) as last_var from product_variant"
+            )
+
+            for(const v of variants){
+
+                const last_var = var_row[0].last_var || 0;
+                const variant_id = `VAR${String(last_var + next_num).padStart(3,"0")}`;
+                const inventory_id = `INV${variant_id}`;
+                next_num++;
+
+                await Connection.execute(
+                    "Insert into product_variant (product_id, variant_id, sku, variant_name, price, created_at) values (?,?,?,?,?,?)",
+                    [
+                        product_id,
+                        variant_id,
+                        v.sku,
+                        v.variant_name,
+                        v.price,
+                        new Date()
+                    ]
+                )
+
+
+                await Connection.execute(
+                    "Insert into inventory (inventory_id,variant_id,quantity_on_hand) values (?,?,?)",
+                    [
+                        inventory_id,
+                        variant_id,
+                        v.stock
+                    ]
+                )
+            }
+        }
+        
+        await Connection.commit(); //Committing the transaction if all the queries are successful
 
         res.status(201).json({message : "Product created successfully",product_id});
     }catch(e){
         console.error(e);
+        await Connection.rollback(); //Rolling back the transaction in case of an error
         res.status(500).json({error : "Failed to insert product"});
+    } finally {
+        await Connection.release(); //Releasing the database connection
     }
 }
 
@@ -150,7 +223,10 @@ const updateProduct = async(req, res) =>{
             product[0].variants = up_variants
         }
 
-        await pool.execute(
+        const Connection = await pool.getConnection();
+        await Connection.beginTransaction();
+
+        await Connection.execute(
             "Update product set product_name = ?, brand = ?, badge = ?,description = ? where product_id = ?" ,
             [
                 product[0].product_name ?? null,
@@ -163,7 +239,7 @@ const updateProduct = async(req, res) =>{
 
         if(up_variants && Array.isArray(up_variants)){
             for(const v of up_variants){
-                await pool.execute(
+                await Connection.execute(
                     "Update product_variant set variant_name = ?, price = ?, sku = ? where product_id = ? and variant_id = ?",
                     [ 
                         v.variant_name,
@@ -174,7 +250,7 @@ const updateProduct = async(req, res) =>{
                     ]
                 )
 
-                await pool.execute(
+                await Connection.execute(
                     "Update inventory set quantity_on_hand = ? where variant_id = ?",
                     [
                         v.stock,
@@ -184,10 +260,14 @@ const updateProduct = async(req, res) =>{
             }
         }
 
+        await Connection.commit();
         res.status(200).json({message :"Product updated successfully"});
     }catch(e){
         console.error(e);
+        await Connection.rollback();
         res.status(500).json({error : "Failed to update product"});
+    } finally {
+        await Connection.release();
     }
 }
 
@@ -212,7 +292,7 @@ const deleteProduct =async(req, res) =>{
 
 const getAllCategories = async (req, res)=>{
     try {
-        const [category] = await pool.execute("Select category_id as id, category_name as name from category order by name");
+        const [category] = await pool.execute("Select category_id, category_name from category order by category_name");
         
         if(category.length === 0){
             return res.status(404).json({"message": "Categories not Found..!"});

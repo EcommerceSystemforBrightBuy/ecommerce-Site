@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, Trash2, CheckCircle2, Warehouse } from "lucide-react";
@@ -10,21 +10,33 @@ export default function AddProductPage() {
 
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
-  const [category, setCategory] = useState("mobiles");
+  const [category, setCategory] = useState([]);
   const [badge, setBadge] = useState("NEW");
   const [description, setDescription] = useState("");
-  const [image, setImage] = useState(
-    "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?auto=format&fit=crop&w=800&q=80"
-  );
+  const [image, setImage] = useState("");
+
+  const[categories, setCategories] = useState([]);
+  const[loading, setLoading] = useState(true);
+  useEffect(() =>{
+    fetch("http://localhost:8000/api/categories")
+    .then(response => response.json())
+    .then(data => {
+      setCategories(data);
+      setLoading(false);
+    })
+    .catch(e => {
+      console.error("Error fetching categories:", e);
+      setLoading(false);
+    });
+  },[]);
 
   const [variants, setVariants] = useState([
     {
-      id: "v-1",
-      name: "Default Variant",
+      temp_id : new Date().getTime(),
+      variant_name: "Default Variant",
       sku: "WH-NEW-SKU-001",
       price: 299.99,
-      stock: 50,
-      colorHex: "#222222",
+      stock: 50
     },
   ]);
 
@@ -32,31 +44,61 @@ export default function AddProductPage() {
     setVariants((prev) => [
       ...prev,
       {
-        id: `v-${Date.now()}`,
-        name: `Variant ${prev.length + 1}`,
+        temp_id: new Date().getTime(),
+        variant_name: `Variant ${prev.length + 1}`,
         sku: `WH-NEW-SKU-00${prev.length + 1}`,
         price: 299.99,
-        stock: 25,
-        colorHex: "#717171",
+        stock: 25
       },
     ]);
   };
 
   const removeVariantField = (id) => {
     if (variants.length <= 1) return;
-    setVariants((prev) => prev.filter((v) => v.id !== id));
+    setVariants((prev) => prev.filter((v) => v.temp_id !== id));
   };
 
   const updateVariant = (id, field, val) => {
     setVariants((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, [field]: val } : v))
+      prev.map((v) => (v.temp_id === id ? { ...v, [field]: val } : v))
     );
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    router.push("/admin/products");
+  const handleSubmit = async(e) => {
+    try {
+      e.preventDefault();
+
+      const response = await fetch("http://localhost:8000/api/products",
+        {
+          method : 'POST',
+          headers : {'Content-type' : 'application/json'},
+          body : JSON.stringify({
+            product_name : name,
+            brand : brand,
+            badge : badge,
+            category : category,
+            image_url : image,
+            description : description,
+            variants : variants
+          })
+        }
+      )
+
+      if(!response.ok){
+        throw new Error("Failed to Create product..!")
+      }
+
+      router.push("/admin/products");
+      alert("Product created Successfully",3000);
+    } catch (e) {
+      console.error("Creation failed:", e);
+      alert("Failed to create product. Please try again.");
+    }
   };
+
+  if(loading){
+    return <p>Loading Categories...!</p>
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -114,11 +156,9 @@ export default function AddProductPage() {
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs font-bold text-[#222222]"
               >
-                <option value="mobiles">Mobiles &amp; Tablets</option>
-                <option value="audio">Audio Devices</option>
-                <option value="toys">Smart Toys &amp; Robotics</option>
-                <option value="wearables">Wearables &amp; Watches</option>
-                <option value="gaming">Drones &amp; Gaming</option>
+                {categories.map(c =>{
+                  return< option key={c.category_id} value={c.category_name}>{c.category_name}</option>
+                })}
               </select>
             </div>
 
@@ -180,7 +220,7 @@ export default function AddProductPage() {
           <div className="space-y-3">
             {variants.map((v, idx) => (
               <div
-                key={v.id}
+                key={v.temp_id}
                 className="p-4 rounded-2xl border border-[#DDDDDD] bg-[#F7F7F7] space-y-3 relative"
               >
                 <div className="flex items-center justify-between font-bold text-[#222222]">
@@ -188,7 +228,7 @@ export default function AddProductPage() {
                   {variants.length > 1 && (
                     <button
                       type="button"
-                      onClick={() => removeVariantField(v.id)}
+                      onClick={() => removeVariantField(v.temp_id)}
                       className="text-[#717171] hover:text-[#FF385C] p-1"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -204,8 +244,8 @@ export default function AddProductPage() {
                     <input
                       type="text"
                       required
-                      value={v.name}
-                      onChange={(e) => updateVariant(v.id, "name", e.target.value)}
+                      value={v.variant_name}
+                      onChange={(e) => updateVariant(v.temp_id, "variant_name", e.target.value)}
                       placeholder="e.g. Space Gray / 128GB"
                       className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs text-[#222222]"
                     />
@@ -219,7 +259,7 @@ export default function AddProductPage() {
                       type="text"
                       required
                       value={v.sku}
-                      onChange={(e) => updateVariant(v.id, "sku", e.target.value)}
+                      onChange={(e) => updateVariant(v.temp_id, "sku", e.target.value)}
                       className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                     />
                   </div>
@@ -233,7 +273,7 @@ export default function AddProductPage() {
                       step="0.01"
                       required
                       value={v.price}
-                      onChange={(e) => updateVariant(v.id, "price", parseFloat(e.target.value))}
+                      onChange={(e) => updateVariant(v.temp_id, "price", parseFloat(e.target.value))}
                       className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                     />
                   </div>
@@ -246,7 +286,7 @@ export default function AddProductPage() {
                       type="number"
                       required
                       value={v.stock}
-                      onChange={(e) => updateVariant(v.id, "stock", parseInt(e.target.value, 10))}
+                      onChange={(e) => updateVariant(v.temp_id, "stock", parseInt(e.target.value, 10))}
                       className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                     />
                   </div>
