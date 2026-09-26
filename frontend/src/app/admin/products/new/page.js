@@ -10,13 +10,15 @@ export default function AddProductPage() {
 
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
-  const [category, setCategory] = useState([]);
-  const [badge, setBadge] = useState("NEW");
+  const [category, setCategory] = useState("");
+  const [badge, setBadge] = useState("");
   const [description, setDescription] = useState("");
   const [image, setImage] = useState("");
 
   const[categories, setCategories] = useState([]);
   const[loading, setLoading] = useState(true);
+  const[submitting, setSubmitting] = useState(false); //For preventing user from resubmitting the same product
+
   useEffect(() =>{
     fetch("http://localhost:8000/api/categories")
     .then(response => response.json())
@@ -33,10 +35,10 @@ export default function AddProductPage() {
   const [variants, setVariants] = useState([
     {
       temp_id : new Date().getTime(),
-      variant_name: "Default Variant",
-      sku: "WH-NEW-SKU-001",
-      price: 299.99,
-      stock: 50
+      variant_name: "",
+      sku: "",
+      price: "",
+      stock: ""
     },
   ]);
 
@@ -45,10 +47,10 @@ export default function AddProductPage() {
       ...prev,
       {
         temp_id: new Date().getTime(),
-        variant_name: `Variant ${prev.length + 1}`,
-        sku: `WH-NEW-SKU-00${prev.length + 1}`,
-        price: 299.99,
-        stock: 25
+        variant_name: "",
+        sku: "",
+        price: "",
+        stock: ""
       },
     ]);
   };
@@ -65,9 +67,10 @@ export default function AddProductPage() {
   };
 
   const handleSubmit = async(e) => {
+    e.preventDefault();
+    
     try {
-      e.preventDefault();
-
+      setSubmitting(true);
       const response = await fetch("http://localhost:8000/api/products",
         {
           method : 'POST',
@@ -85,14 +88,17 @@ export default function AddProductPage() {
       )
 
       if(!response.ok){
-        throw new Error("Failed to Create product..!")
+        const data = await response.json();
+        throw new Error(data.error || "Failed to Create product..!")
       }
 
+      alert("Product created Successdully");
       router.push("/admin/products");
-      alert("Product created Successfully",3000);
-    } catch (e) {
-      console.error("Creation failed:", e);
-      alert("Failed to create product. Please try again.");
+    } catch (err) {
+      console.error("Creation failed:", err);
+      alert(err.message);
+    }finally{
+      setSubmitting(false);
     }
   };
 
@@ -152,12 +158,14 @@ export default function AddProductPage() {
             <div>
               <label className="block text-[#222222] font-bold mb-1">Category</label>
               <select
+                required
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs font-bold text-[#222222]"
               >
+                <option value="">Select a Category</option>
                 {categories.map(c =>{
-                  return< option key={c.category_id} value={c.category_name}>{c.category_name}</option>
+                  return<option key={c.category_id} value={c.category_name}>{c.category_name}</option>
                 })}
               </select>
             </div>
@@ -176,12 +184,20 @@ export default function AddProductPage() {
             <div className="sm:col-span-2">
               <label className="block text-[#222222] font-bold mb-1">Image URL</label>
               <input
-                type="text"
+                type="url"
                 required
                 value={image}
                 onChange={(e) => setImage(e.target.value)}
+                onError={(e) => { 
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/placeholder.png';
+                }}
+                placeholder="https://images.abc.com/..."
                 className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
               />
+              {image && (
+                  <img src={image} alt="Preview" className="mt-2 h-24 rounded-xl object-cover" />
+              )}
             </div>
 
             <div className="sm:col-span-2">
@@ -260,6 +276,7 @@ export default function AddProductPage() {
                       required
                       value={v.sku}
                       onChange={(e) => updateVariant(v.temp_id, "sku", e.target.value)}
+                      placeholder="SKU-PRD001-01"
                       className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                     />
                   </div>
@@ -271,9 +288,11 @@ export default function AddProductPage() {
                     <input
                       type="number"
                       step="0.01"
+                      min="0"
                       required
                       value={v.price}
-                      onChange={(e) => updateVariant(v.temp_id, "price", parseFloat(e.target.value))}
+                      onChange={(e) => updateVariant(v.temp_id, "price", e.target.value)}
+                      placeholder="0.00"
                       className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                     />
                   </div>
@@ -285,8 +304,10 @@ export default function AddProductPage() {
                     <input
                       type="number"
                       required
+                      min="0"
                       value={v.stock}
-                      onChange={(e) => updateVariant(v.temp_id, "stock", parseInt(e.target.value, 10))}
+                      onChange={(e) => updateVariant(v.temp_id, "stock", e.target.value)}
+                      placeholder="0"
                       className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                     />
                   </div>
@@ -306,9 +327,10 @@ export default function AddProductPage() {
           </Link>
           <button
             type="submit"
-            className="py-3 px-8 bg-[#FF385C] hover:bg-[#E00B41] text-white font-bold text-xs rounded-xl shadow-md"
+            disabled= {submitting}
+            className="py-3 px-8 bg-[#FF385C] hover:bg-[#E00B41] text-white font-bold text-xs rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save Product to Database
+            {submitting ? "Saving..." : "Save Product to Database"}
           </button>
         </div>
       </form>

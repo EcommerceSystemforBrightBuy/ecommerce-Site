@@ -10,34 +10,58 @@ export default function EditProductPage({ params }) {
   const router = useRouter();
   const [product, setProduct] = useState(null);
   const [loading ,setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   //product_details
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
+  const [badge, setBadge] = useState("");
+  const [image, setImage] = useState("");
   const [description, setDescription] = useState("");
-  const [badge, setBadge] = useState("FEATURED");
+  const [category, setCategory] = useState("");
+  const [categories, setCategories] = useState([]);
   const [variants, setVariants] = useState([]);
 
   useEffect(()=>{
     fetch(`http://localhost:8000/api/products/${unwrappedParams.id}`)
-    .then(response => response.json())
+    .then(response =>{
+      if(!response.ok) throw new Error("Product not found");
+      return response.json();
+    })
     .then(data => {
       setProduct(data);
       setLoading(false);
       setName(data.name);
       setBrand(data.brand);
+      setBadge(data.badge ?? "");
+      setImage(data.image ?? "");
       setDescription(data.description);
-      setVariants(data.variants);
-      setBadge(data.badge || " ");
+      setVariants(data.variants.map(v =>(
+        {...v, stock: v.stock ?? 0}
+      )));
     })
-    .catch((e) =>{
-        console.error("error:",e);
+    .catch((err) =>{
+        console.error("error:",err);
         setLoading(false);
     })
   },[unwrappedParams.id]);
 
+  useEffect(() => {
+  fetch("http://localhost:8000/api/categories")
+    .then(response => response.json())
+    .then(data => {
+      setCategories(data)
+      setCategory(data[0]?.category_name || "");
+    })
+    .catch(err => console.error(err));
+  }, []);
+  
   if(loading){
     return <p>Product loading...!</p>
+  }
+
+  if(!product){
+    return <p>Product not Found...!</p>
   }
 
   const updateVariant = (id, field, val) => {
@@ -48,6 +72,7 @@ export default function EditProductPage({ params }) {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
 
     try {
         const response = await fetch(`http://localhost:8000/api/products/${unwrappedParams.id}`,{
@@ -57,19 +82,25 @@ export default function EditProductPage({ params }) {
             up_product_name : name,
             up_product_brand : brand,
             up_product_badge : badge,
+            up_product_category : category,
+            up_product_image : image,
             up_product_description : description,
             up_variants : variants
           })
         })
 
         if(!response.ok){
-          throw new Error("Failed to update product");
+          const data = await response.json();
+          throw new Error(data.message || "Failed to update product");
         }
 
+        alert("Product updated successfully");
         router.push("/admin/products");
-    } catch (e) {
-        console.error("Update failed:", e);
-        alert("Failed to update product. Please try again.");
+    } catch (err) {
+        console.error("Update failed:", err);
+        alert(err.message || "Failed to update product");
+    }finally {
+        setSubmitting(false);
     }
   };
 
@@ -119,6 +150,51 @@ export default function EditProductPage({ params }) {
               />
             </div>
 
+            <div>
+              <label className="block text-[#222222] font-bold mb-1">Badge</label>
+              <input
+                type="text"
+                value={badge}
+                onChange={(e) => setBadge(e.target.value)}
+                placeholder="HOT, NEW, SALE"
+                className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[#222222] font-bold mb-1">Category</label>
+              <select
+                required
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs font-bold text-[#222222]"
+              >
+                <option value="">Select a Category</option>
+                {categories.map(c =>{
+                  return<option key={c.category_id} value={c.category_name}>{c.category_name}</option>
+                })}
+              </select>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-[#222222] font-bold mb-1">Image URL</label>
+              <input
+                type="url"
+                required
+                value={image}
+                onChange={(e) => setImage(e.target.value)}
+                onError={(e) => { 
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/placeholder.png';
+                }}
+                placeholder="https://images.abc.com/..."
+                className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
+              />
+              {image && (
+                  <img src={image} alt="Preview" className="mt-2 h-24 rounded-xl object-cover" />
+              )}
+            </div>
+
             <div className="sm:col-span-2">
               <label className="block text-[#222222] font-bold mb-1">Description</label>
               <textarea
@@ -144,7 +220,8 @@ export default function EditProductPage({ params }) {
                   <input
                     type="text"
                     value={v.variant_name}
-                    onChange={(e) => updateVariant(v.variant_id, "name", e.target.value)}
+                    required
+                    onChange={(e) => updateVariant(v.variant_id, "variant_name", e.target.value)}
                     className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs text-[#222222]"
                   />
                 </div>
@@ -154,6 +231,7 @@ export default function EditProductPage({ params }) {
                   <input
                     type="text"
                     value={v.sku}
+                    required
                     onChange={(e) => updateVariant(v.variant_id, "sku", e.target.value)}
                     className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                   />
@@ -165,7 +243,9 @@ export default function EditProductPage({ params }) {
                     type="number"
                     step="0.01"
                     value={v.price}
-                    onChange={(e) => updateVariant(v.variant_id, "price", parseFloat(e.target.value))}
+                    min="0"
+                    required
+                    onChange={(e) => updateVariant(v.variant_id, "price", e.target.value)}
                     className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                   />
                 </div>
@@ -175,7 +255,9 @@ export default function EditProductPage({ params }) {
                   <input
                     type="number"
                     value={v.stock}
-                    onChange={(e) => updateVariant(v.variant_id, "stock", parseInt(e.target.value, 10))}
+                    min="0"
+                    required
+                    onChange={(e) => updateVariant(v.variant_id, "stock", e.target.value)}
                     className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                   />
                 </div>
@@ -193,10 +275,13 @@ export default function EditProductPage({ params }) {
           </Link>
           <button
             type="submit"
-            className="py-3 px-8 bg-[#FF385C] hover:bg-[#E00B41] text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-2"
+            disabled={submitting}
+            className="py-3 px-8 bg-[#FF385C] hover:bg-[#E00B41] text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
-            <span>Update Database Entry</span>
+            <span>
+              {submitting ? "Updating..." : "Update Database Entry"}
+            </span>
           </button>
         </div>
       </form>

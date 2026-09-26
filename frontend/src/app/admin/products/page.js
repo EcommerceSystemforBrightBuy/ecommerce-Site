@@ -18,6 +18,7 @@ import {
 export default function AdminProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCat, setSelectedCat] = useState("all");
+  const [submitting, setSubmitting] = useState(false);
 
   // Modal States
   const [viewProduct, setViewProduct] = useState(null);
@@ -25,6 +26,7 @@ export default function AdminProductsPage() {
   const [actionSuccess, setActionSuccess] = useState("");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     fetch("http://localhost:8000/api/products/admin")
@@ -39,12 +41,27 @@ export default function AdminProductsPage() {
       })
   }, []);
 
+  useEffect(() =>{
+    fetch("http://localhost:8000/api/categories")
+    .then(response => response.json())
+    .then(data => {
+      setCategories(data);
+    })
+    .catch((err) =>{
+        console.error("Error fetching categories:", err);
+        setLoading(false);
+    })
+  },[])
+
   const filteredProducts = products.filter((p) => {
-    if (selectedCat !== "all" && !p.categories.includes(selectedCat)) return false;
+    if (selectedCat !== "all"){
+        const cats = p.categories ? p.categories.split(",") : [];
+        if(!cats.includes(selectedCat)) return false;
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchesName = p.name.toLowerCase().includes(q);
-      const matchesBrand = p.brand.toLowerCase().includes(q);
+      const matchesBrand = p.brand?.toLowerCase().includes(q);
       const matchesSku = p.variants.some((v) => v.sku.toLowerCase().includes(q));
       if (!matchesName && !matchesBrand && !matchesSku) return false;
     }
@@ -55,22 +72,27 @@ export default function AdminProductsPage() {
     if (!deleteProduct) return;
 
     try {
+        setSubmitting(true);
+
         const response = await fetch(`http://localhost:8000/api/products/${deleteProduct.product_id}`,{
           method : 'DELETE',
         })
 
         if(!response.ok){
-          throw new Error("Failed to update product");
+          const data = await response.json();
+          throw new Error(data.error || "Failed to delete product");
         }
 
         setProducts((prev) => prev.filter((item) => item.product_id !== deleteProduct.product_id));
         setActionSuccess(`Product "${deleteProduct.name}" removed from Texas database.`);
         setDeleteProduct(null);
-        setTimeout(() => setActionSuccess("Product Delete Successfully"), 3000);
+        setTimeout(() => setActionSuccess(""), 3000);
 
-    } catch (e) {
-        console.error("Delete failed:", e);
-        alert("Failed to delete product. Please try again.");
+    } catch (err) {
+        console.error("Delete failed:", err);
+        alert(err.message);
+    }finally{
+        setSubmitting(false);
     }
   };
 
@@ -131,11 +153,9 @@ export default function AdminProductsPage() {
             className="bg-[#F7F7F7] border border-[#DDDDDD] rounded-full px-4 py-2.5 font-bold text-[#222222] focus:outline-none"
           >
             <option value="all">All Categories</option>
-            <option value="mobiles">Mobiles &amp; Tablets</option>
-            <option value="audio">Audio Devices</option>
-            <option value="toys">Smart Toys</option>
-            <option value="wearables">Wearables</option>
-            <option value="gaming">Drones &amp; Gaming</option>
+            {categories.map(c =>{
+              return <option key={c.category_id} value={c.category_name}>{c.category_name}</option>
+            })}
           </select>
         </div>
       </div>
@@ -167,6 +187,10 @@ export default function AdminProductsPage() {
                         <img
                           src={p.image_url}
                           alt={p.name}
+                          onError={(e) => { 
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = '/placeholder.png';
+                          }}
                           className="w-12 h-12 rounded-xl object-cover border border-[#EBEBEB] shrink-0"
                         />
                         <div>
@@ -195,13 +219,13 @@ export default function AdminProductsPage() {
                           {p.variants.length} variant option(s)
                         </div>
                         <div className="text-[10px] font-mono text-[#717171]">
-                          Primary: {defaultVariant.sku}
+                          Primary: {defaultVariant?.sku ?? "-"}
                         </div>
                       </div>
                     </td>
 
                     <td className="py-4 px-4 font-bold text-[#222222] font-mono">
-                      ${defaultVariant.price}
+                      ${defaultVariant?.price ?? "-"}
                     </td>
 
                     <td className="py-4 px-4">
@@ -274,7 +298,11 @@ export default function AdminProductsPage() {
               <div className="space-y-1">
                 <div className="font-black text-lg text-[#222222]">{viewProduct.name}</div>
                 <div className="text-xs text-[#717171]">Brand: {viewProduct.brand}</div>
-                <div className="text-xs font-bold text-amber-500">★ {viewProduct.rating} ({viewProduct.reviewCount} reviews)</div>
+                <div className="text-xs font-bold text-amber-500">
+                  {viewProduct.rating ?
+                    `★ ${viewProduct.rating} (${viewProduct.reviewCount} reviews)`
+                     : "No reviews yet"}
+                </div>
               </div>
             </div>
 
@@ -291,7 +319,7 @@ export default function AdminProductsPage() {
                     className="p-2.5 rounded-xl bg-[#F7F7F7] border border-[#DDDDDD] flex items-center justify-between text-xs"
                   >
                     <div>
-                      <div className="font-bold text-[#222222]">{v.name}</div>
+                      <div className="font-bold text-[#222222]">{v.variant_name}</div>
                       <div className="text-[10px] font-mono text-[#717171]">SKU: {v.sku}</div>
                     </div>
                     <div className="text-right">
@@ -339,9 +367,10 @@ export default function AdminProductsPage() {
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="flex-1 py-3 bg-[#FF385C] hover:bg-[#E00B41] text-white font-bold text-xs rounded-xl shadow-md"
+                disabled = {submitting}
+                className="flex-1 py-3 bg-[#FF385C] hover:bg-[#E00B41] text-white font-bold text-xs rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Yes, Delete Product
+                {submitting ? "Deleting..." : "Yes, Delete Product"}
               </button>
             </div>
           </div>

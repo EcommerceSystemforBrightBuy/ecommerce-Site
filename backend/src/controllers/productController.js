@@ -45,7 +45,12 @@ const getAllProductswithVariants = async(req,res) =>{
 const getProductByID = async(req, res) =>{
     try{
         //Using prepare statement to prevent data from SQL injection kind of issues.
-        const [productRows] = await pool.execute("Select p.product_id, p.product_name as name, p.brand, p.badge, round(AVG(f.rating), 1) as rating, count(f.feedback_id) as reviewCount, p.description, p.image_url from product p left join product_feedback f on p.product_id = f.product_id where p.product_id = ?", [req.params.id]); 
+        const [productRows] = await pool.execute(
+            "Select p.product_id, p.product_name as name, p.brand, p.badge, round(AVG(f.rating), 1) as rating, count(f.feedback_id) as reviewCount, p.description, p.image_url from product p left join product_feedback f on p.product_id = f.product_id where p.product_id = ? group by p.product_id, p.brand, p.badge, p.description, p.image_url", 
+            [
+                req.params.id
+            ]
+        ); 
         
         if(productRows.length === 0){
             return res.status(404).json({error : "Product not found"});
@@ -92,44 +97,44 @@ const createProduct = async(req, res) => {
            variants,
     } = req.body;
 
-    const [row] = await pool.execute(
-        "Select product_id from product order by product_id desc limit 1"
-    );
-    
-    if(!product_name){
-        return res.status(400).json({error : "product_name is required"});
+    if(!product_name || !category){
+        return res.status(400).json({error : "product_name and category are required"});
     }
     
-    //Generating product id
-    let product_id = ''
-
-    const [rows] = await pool.execute(
-        "Select max(cast(substring(product_id,4) as unsigned)) as last_num from product"
-    );
+    if(!Array.isArray(variants) || variants.length === 0){
+        return res.status(400).json({error : "At least one variant is required"});
+    }
     
-    const lastnum = rows[0].last_num || 0;
-    product_id = `PRD${String(lastnum + 1).padStart(3,"0")}`; 
-
     const Connection = await pool.getConnection();
     
     try{
         await Connection.beginTransaction(); //Using transaction for keep ACID property
+        
+        //Generating product id
+        let product_id = ''
+    
+        const [rows] = await Connection.execute(
+            "Select max(cast(substring(product_id,4) as unsigned)) as last_num from product"
+        );
+        
+        const lastnum = rows[0].last_num || 0;
+        product_id = `PRD${String(lastnum + 1).padStart(3,"0")}`; 
 
         await Connection.execute(
             "Insert into product (product_id, product_name, brand, badge, image_url, description, created_at) values (?,?,?,?,?,?,?)",
             [   
                 product_id, 
                 product_name, 
-                brand, 
-                badge,
-                image_url,
-                description, 
+                brand ?? null,
+                badge?.trim() || null, 
+                image_url ?? null,
+                description ?? null, 
                 new Date() // Catching the time when this action is executed
             ]
         );
         
         //Inserting category
-        await Connection.execute(
+        const [catResult] =await Connection.execute(
             "Insert into product_category (product_id, category_id) select ?, category_id from category where category_name = ?",
             [
                 product_id,
@@ -137,39 +142,58 @@ const createProduct = async(req, res) => {
             ]
         )
 
+        if(catResult.affectedRows === 0){
+            throw new Error("Invalid Category");
+        }
+
         //Inserting variants
         if(variants.length !== 0){
             let next_num = 1;
-            const [var_row] = await pool.execute(
+            const [var_row] = await Connection.execute(
                 "Select max(cast(substring(variant_id,4) as unsigned)) as last_var from product_variant"
             )
 
-            for(const v of variants){
+            for(const [index, v] of variants.entries()){
 
                 const last_var = var_row[0].last_var || 0;
                 const variant_id = `VAR${String(last_var + next_num).padStart(3,"0")}`;
-                const inventory_id = `INV${variant_id}`;
                 next_num++;
 
+                const price = parseFloat(v.price);
+                const stock = parseInt(v.stock,10) || 0;
+
+                if(isNaN(price) || price < 0){
+                    throw new Error(`Invalid price for variant ${v.variant_name}`);
+                }
+
+                if(isNaN(stock) || stock < 0){
+                    throw new Error(`Invalid stock for variant ${v.variant_name}`);
+                }
+
+                if(!v.sku || !v.variant_name){
+                    throw new Error("Each variant needs a name and SKU");
+                }
+
                 await Connection.execute(
-                    "Insert into product_variant (product_id, variant_id, sku, variant_name, price, created_at) values (?,?,?,?,?,?)",
+                    "Insert into product_variant (product_id, variant_id, sku, variant_name, price, is_default, created_at) values (?,?,?,?,?,?,?)",
                     [
                         product_id,
                         variant_id,
                         v.sku,
                         v.variant_name,
-                        v.price,
+                        price,
+                        index === 0,
                         new Date()
                     ]
                 )
 
-
+                const inventory_id = variant_id.replace("VAR","INV");
                 await Connection.execute(
                     "Insert into inventory (inventory_id,variant_id,quantity_on_hand) values (?,?,?)",
                     [
                         inventory_id,
                         variant_id,
-                        v.stock
+                        stock
                     ]
                 )
             }
@@ -181,7 +205,7 @@ const createProduct = async(req, res) => {
     }catch(e){
         console.error(e);
         await Connection.rollback(); //Rolling back the transaction in case of an error
-        res.status(500).json({error : "Failed to insert product"});
+        res.status(500).json({error : e.message || "Failed to insert product"});
     } finally {
         await Connection.release(); //Releasing the database connection
     }
@@ -192,14 +216,20 @@ const updateProduct = async(req, res) =>{
         up_product_name,
         up_product_brand,
         up_product_badge,
+        up_product_category,
+        up_product_image,
         up_product_description,
         up_variants
     } = req.body;
 
+    const Connection = await pool.getConnection();
+    await Connection.beginTransaction();
+
     try{
-        const [product] = await pool.execute("Select * from product where product_id = ?", [req.params.id]); 
+        const [product] = await Connection.execute("Select * from product where product_id = ?", [req.params.id]); 
 
         if(product.length === 0){
+            await Connection.rollback();
             return res.status(404).json({error : "Product not found"});
         }  
 
@@ -215,23 +245,40 @@ const updateProduct = async(req, res) =>{
             product[0].badge = up_product_badge
         }
 
+        if(up_product_category !== undefined){
+            await Connection.execute(
+                "Delete from product_category where product_id = ?",
+                [req.params.id]
+            )
+
+            const [catResult] = await Connection.execute(
+                "Insert into product_category (product_id, category_id) select ?, category_id from category where category_name = ?",
+                [
+                    req.params.id, 
+                    up_product_category
+                ]
+            );
+
+            if(catResult.affectedRows === 0){
+                throw new Error("Invalid Category");
+            }
+        }
+
+        if(up_product_image !== undefined){
+            product[0].image_url = up_product_image
+        }
+
         if(up_product_description !== undefined){
             product[0].description = up_product_description
         }
         
-        if(up_variants !== undefined){
-            product[0].variants = up_variants
-        }
-
-        const Connection = await pool.getConnection();
-        await Connection.beginTransaction();
-
         await Connection.execute(
-            "Update product set product_name = ?, brand = ?, badge = ?,description = ? where product_id = ?" ,
+            "Update product set product_name = ?, brand = ?, badge = ?, image_url = ?, description = ? where product_id = ?" ,
             [
                 product[0].product_name ?? null,
                 product[0].brand ?? null,
-                product[0].badge ?? null,
+                product[0].badge?.trim() || null,
+                product[0].image_url ?? null,
                 product[0].description ?? null,
                 req.params.id
             ]
@@ -239,21 +286,40 @@ const updateProduct = async(req, res) =>{
 
         if(up_variants && Array.isArray(up_variants)){
             for(const v of up_variants){
-                await Connection.execute(
+                const price = parseFloat(v.price);
+                const stock = parseInt(v.stock,10) || 0;
+
+                if(isNaN(price) || price < 0){
+                    throw new Error(`Invalid price for variant ${v.variant_name}`);
+                }
+
+                if(isNaN(stock) || stock < 0){
+                    throw new Error(`Invalid stock for variant ${v.variant_name}`);
+                }
+
+                if(!v.variant_id || !v.sku || !v.variant_name){
+                    throw new Error("Each variant needs a variant_id, name and SKU");
+                }
+
+                const [varResults] =await Connection.execute(
                     "Update product_variant set variant_name = ?, price = ?, sku = ? where product_id = ? and variant_id = ?",
                     [ 
                         v.variant_name,
-                        v.price,
+                        price,
                         v.sku,
                         req.params.id,
                         v.variant_id
                     ]
                 )
 
+                if(varResults.affectedRows === 0){
+                    throw new Error(`Variant with id ${v.variant_id} not found for this product`);
+                }
+
                 await Connection.execute(
                     "Update inventory set quantity_on_hand = ? where variant_id = ?",
                     [
-                        v.stock,
+                        stock,
                         v.variant_id
                     ]
                 )
@@ -262,10 +328,15 @@ const updateProduct = async(req, res) =>{
 
         await Connection.commit();
         res.status(200).json({message :"Product updated successfully"});
-    }catch(e){
-        console.error(e);
+    }catch(err){
+        console.error(err);
         await Connection.rollback();
-        res.status(500).json({error : "Failed to update product"});
+        res.status(500).json({error : err.message || "Failed to update product"});
+
+        if(err.code === "ER_DUP_ENTRY"){
+            res.status(400).json({error : "SKU already exists"});
+        }
+
     } finally {
         await Connection.release();
     }
@@ -282,8 +353,8 @@ const deleteProduct =async(req, res) =>{
 
         await pool.execute("Delete from product where product_id = ?", [req.params.id]);
         res.status(200).json({message : "Product successfully deleted"});
-    } catch (e) {
-        console.error(e);
+    } catch (err) {
+        console.error(err);
         res.status(500).json({error : "Failed to delete product"});
 
         //We don't have to catch foreign key delete errors because we handle that in schema.sql by cascade delete.
@@ -299,8 +370,8 @@ const getAllCategories = async (req, res)=>{
         }
 
         res.status(200).json(category);
-    } catch (e) {
-        console.error(e);
+    } catch (err) {
+        console.error(err);
         res.status(500).json({error : "Failed to fetch categories"});
     }
 
