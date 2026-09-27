@@ -222,3 +222,41 @@ INSERT INTO product_attribute (attribute_id, variant_id, attribute_name, attribu
 INSERT INTO product_attribute (attribute_id, variant_id, attribute_name, attribute_value) VALUES ('ATT0049', 'VAR057', 'color', 'Red');
 INSERT INTO product_attribute (attribute_id, variant_id, attribute_name, attribute_value) VALUES ('ATT0050', 'VAR058', 'color', 'Green');
 -- Total attribute rows: 50
+
+INSERT INTO `user` (user_id, email, password_hash, first_name, last_name, role) VALUES
+('USR001', 'alex.rivera@example.com', 'temp_hash_1', 'Alex', 'Rivera', 'customer'),
+('USR002', 'maria.gomez@example.com', 'temp_hash_2', 'Maria', 'Gomez', 'customer'),
+('USR003', 'james.lee@example.com', 'temp_hash_3', 'James', 'Lee', 'customer'),
+('USR004', 'priya.patel@example.com', 'temp_hash_4', 'Priya', 'Patel', 'customer'),
+('USR005', 'tom.walker@example.com', 'temp_hash_5', 'Tom', 'Walker', 'customer');
+
+INSERT INTO customer (customer_id, user_id) VALUES
+('CUST001', 'USR001'),
+('CUST002', 'USR002'),
+('CUST003', 'USR003'),
+('CUST004', 'USR004'),
+('CUST005', 'USR005');
+
+-- Dummy product feedback
+
+INSERT INTO product_feedback (feedback_id, product_id, customer_id, rating, comment, created_at) VALUES
+('FB001', 'PRD001', 'CUST001', 5, 'Amazing display and camera quality. Worth every dollar.', NOW()),
+('FB002', 'PRD001', 'CUST002', 4, 'Great phone, battery could last a bit longer.', NOW()),
+('FB003', 'PRD002', 'CUST003', 4, 'Good budget option, camera is decent for the price.', NOW()),
+('FB004', 'PRD003', 'CUST004', 3, 'Average performance, expected a bit more for the price.', NOW()),
+('FB005', 'PRD004', 'CUST005', 5, 'Triple camera setup is fantastic, very happy with this purchase.', NOW()),
+('FB006', 'PRD006', 'CUST001', 5, 'Super lightweight, perfect for daily carry.', NOW()),
+('FB007', 'PRD007', 'CUST002', 5, 'Handles heavy workloads without breaking a sweat.', NOW()),
+('FB008', 'PRD009', 'CUST003', 4, 'Great for gaming, gets a little warm under load.', NOW()),
+('FB009', 'PRD010', 'CUST004', 5, 'Noise cancellation is excellent, very comfortable too.', NOW()),
+('FB010', 'PRD012', 'CUST005', 4, 'Solid bass, exactly what I was looking for.', NOW()),
+('FB011', 'PRD014', 'CUST001', 4, 'Good entry-level DSLR, easy to learn on.', NOW()),
+('FB012', 'PRD018', 'CUST002', 5, 'Loading times are incredibly fast on this console.', NOW()),
+('FB013', 'PRD019', 'CUST003', 3, 'Controller feels a bit small for larger hands.', NOW()),
+('FB014', 'PRD022', 'CUST004', 5, 'Heart rate tracking is very accurate during workouts.', NOW()),
+('FB015', 'PRD025', 'CUST005', 4, 'Voice assistant responds quickly, sound quality is decent.', NOW()),
+('FB016', 'PRD028', 'CUST001', 4, 'Great tablet for reading and browsing, screen is crisp.', NOW()),
+('FB017', 'PRD031', 'CUST002', 5, 'My kid loves this action figure, well made and durable.', NOW()),
+('FB018', 'PRD035', 'CUST003', 4, 'Fun strategy game for family game nights.', NOW()),
+('FB019', 'PRD038', 'CUST004', 5, 'Great STEM toy, kept my daughter engaged for hours.', NOW()),
+('FB020', 'PRD041', 'CUST005', 4, 'Fast RC car, holds up well on rough terrain.', NOW());

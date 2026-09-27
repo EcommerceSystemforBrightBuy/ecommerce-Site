@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, use } from "react";
+import React, { useState, use, useEffect } from "react";
 import Link from "next/link";
+import {calculateDeliveryEstimate, TEXAS_CITIES} from "../../../data/mockData"
 import { useRouter } from "next/navigation";
-import { PRODUCTS, TEXAS_CITIES, STORE_PICKUP_LOCATIONS, calculateDeliveryEstimate } from "@/data/mockData";
 import { useShop } from "@/context/ShopContext";
 import {
   Star,
@@ -26,16 +26,34 @@ export default function ProductDetailPage({ params }) {
   const unwrappedParams = use(params);
   const router = useRouter();
   const { selectedCity, setSelectedCity, addToCart } = useShop();
-
-  const product = PRODUCTS.find((p) => p.id === unwrappedParams.id) || PRODUCTS[0];
+  const [product, setproduct] = useState(null);
+  const [loading, setloading] = useState(true);
   const [variantIndex, setVariantIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [addedNotice, setAddedNotice] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
+  useEffect(() => {
+     fetch(`http://localhost:8000/api/products/${unwrappedParams.id}`)
+       .then(response => response.json())
+       .then(data => {
+         setproduct(data),
+         setloading(false)
+     })
+  },[unwrappedParams.id]); //it will make the page refresh once the id changed
+
+ if(loading){
+    return <p>Loading products....</p>
+ }
+
+ if(!product){
+    return <p>Product not Found...!</p>
+ }
+
   const activeVariant = product.variants[variantIndex] || product.variants[0];
   const isInStock = activeVariant.stock > 0;
   const estimate = calculateDeliveryEstimate(selectedCity.name, isInStock);
+
 
   const handleAddToCart = () => {
     addToCart(product, activeVariant, quantity);
@@ -69,11 +87,13 @@ export default function ProductDetailPage({ params }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 text-xs text-[#222222] font-semibold">
+          {product.rating && (
           <div className="flex items-center gap-1">
             <Star className="w-4 h-4 fill-[#222222] text-[#222222]" />
             <span>{product.rating}</span>
             <span className="text-[#717171] font-normal">({product.reviewCount} reviews)</span>
           </div>
+        )}
           <span>•</span>
           <span>Brand: {product.brand}</span>
           <span>•</span>
@@ -84,7 +104,7 @@ export default function ProductDetailPage({ params }) {
       {/* Large Airbnb Image Gallery Container */}
       <div className="rounded-3xl overflow-hidden aspect-16/9 max-h-[460px] bg-[#F7F7F7] border border-[#EBEBEB] relative">
         <img
-          src={product.image}
+          src={product.image_url}
           alt={product.name}
           className="w-full h-full object-cover"
         />

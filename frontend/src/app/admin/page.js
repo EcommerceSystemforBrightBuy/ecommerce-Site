@@ -7,7 +7,7 @@ import {
   QUARTERLY_SALES_DATA,
   TOP_SELLING_PRODUCTS,
 } from "@/data/mockAdminData";
-import { PRODUCTS } from "@/data/mockData";
+
 import {
   TrendingUp,
   ShoppingBag,

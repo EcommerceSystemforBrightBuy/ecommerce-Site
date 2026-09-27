@@ -4,9 +4,12 @@ const {getAllProducts,
        getProductByID,
        createProduct,
        updateProduct,
-       deleteProduct
+       deleteProduct,
+       getAllProductswithVariants
 } = require('../controllers/productController');
 
+//For admin page
+productRouter.get('/admin',getAllProductswithVariants);
 
 productRouter.get('/',getAllProducts).get('/:id',getProductByID);
 productRouter.post('/',createProduct);

@@ -13,6 +13,8 @@ DROP TABLE IF EXISTS inventory_transaction;
 
 DROP TABLE IF EXISTS inventory;
 
+DROP TABLE IF EXISTS product_feedback;
+
 DROP TABLE IF EXISTS product_attribute;
 
 DROP TABLE IF EXISTS product_category;
@@ -105,7 +107,6 @@ CREATE TABLE category (
     CONSTRAINT pk_category PRIMARY KEY (category_id),
     CONSTRAINT uq_category_name UNIQUE (category_name)
 ) ENGINE = InnoDB;
-
 CREATE TABLE subcategory (
     subcategory_id VARCHAR(50) NOT NULL,
     category_id VARCHAR(50) NOT NULL,
@@ -124,6 +125,8 @@ CREATE TABLE product (
     product_name VARCHAR(200) NOT NULL,
     brand VARCHAR(100) DEFAULT NULL,
     description TEXT DEFAULT NULL,
+    badge VARCHAR(50) DEFAULT NULL,
+    image_url VARCHAR(500) DEFAULT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_product PRIMARY KEY (product_id)
@@ -172,7 +175,22 @@ CREATE TABLE product_attribute (
 
 CREATE INDEX idx_attribute_variant ON product_attribute (variant_id);
 
--- 10. Central Warehouse Inventory
+ --10. Product Feedback & Ratings
+
+CREATE TABLE product_feedback (
+    feedback_id VARCHAR(50) NOT NULL,
+    product_id VARCHAR(50) NOT NULL,
+    customer_id VARCHAR(50) NOT NULL,
+    rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    review TEXT DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_feedback PRIMARY KEY (feedback_id),
+    CONSTRAINT fk_feedback_product FOREIGN KEY (product_id) REFERENCES product (product_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_feedback_customer FOREIGN KEY (customer_id) REFERENCES customer (customer_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT uq_feedback UNIQUE (product_id, customer_id)  -- Ensure one feedback per product per customer
+) ENGINE = InnoDB;
+
+-- 11. Central Warehouse Inventory
 
 CREATE TABLE inventory (
     inventory_id VARCHAR(50) NOT NULL,
@@ -186,7 +204,7 @@ CREATE TABLE inventory (
     CONSTRAINT fk_inventory_variant FOREIGN KEY (variant_id) REFERENCES product_variant (variant_id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB;
 
--- 11. Orders
+-- 12. Orders
 
 CREATE TABLE `order` (
     order_id VARCHAR(50) NOT NULL,
@@ -210,7 +228,7 @@ CREATE INDEX idx_order_customer ON `order` (customer_id);
 
 CREATE INDEX idx_order_date ON `order` (order_date);
 
--- 12. Order Items
+-- 13. Order Items
 
 CREATE TABLE order_item (
     order_item_id VARCHAR(50) NOT NULL,
@@ -230,7 +248,7 @@ CREATE INDEX idx_orderitem_order ON order_item (order_id);
 
 CREATE INDEX idx_orderitem_variant ON order_item (variant_id);
 
--- 13. Inventory Audit / Transactions
+-- 14. Inventory Audit / Transactions
 
 CREATE TABLE inventory_transaction (
     transaction_id VARCHAR(50) NOT NULL,
@@ -251,7 +269,7 @@ CREATE TABLE inventory_transaction (
 
 CREATE INDEX idx_invtrans_inventory ON inventory_transaction (inventory_id);
 
--- 14. Delivery Details
+-- 15. Delivery Details
 
 CREATE TABLE delivery (
     delivery_id VARCHAR(50) NOT NULL,
@@ -277,7 +295,7 @@ CREATE TABLE delivery (
 
 CREATE INDEX idx_delivery_date ON delivery (estimated_delivery_date);
 
--- 15. Payment Details
+-- 16. Payment Details
 
 CREATE TABLE payment (
     payment_id VARCHAR(50) NOT NULL,
@@ -301,7 +319,7 @@ CREATE TABLE payment (
     CONSTRAINT fk_payment_order FOREIGN KEY (order_id) REFERENCES `order` (order_id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB;
 
--- 16. Shopping Cart & Cart Items (Registered Customers)
+-- 17. Shopping Cart & Cart Items (Registered Customers)
 
 CREATE TABLE cart (
     cart_id VARCHAR(50) NOT NULL,
