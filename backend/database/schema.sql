@@ -175,7 +175,7 @@ CREATE TABLE product_attribute (
 
 CREATE INDEX idx_attribute_variant ON product_attribute (variant_id);
 
- --10. Product Feedback & Ratings
+ -- 10. Product Feedback & Ratings
 
 CREATE TABLE product_feedback (
     feedback_id VARCHAR(50) NOT NULL,

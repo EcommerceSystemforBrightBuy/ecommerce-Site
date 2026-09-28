@@ -34,12 +34,21 @@ export default function ProductDetailPage({ params }) {
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
-     fetch(`http://localhost:8000/api/products/${unwrappedParams.id}`)
-       .then(response => response.json())
+     fetch(`${process.env.NEXT_PUBLIC_URL}/api/products/${unwrappedParams.id}`)
+       .then(response => {
+          if(!response.ok){
+            throw new Error("Failed to fetch product")
+          }
+          return response.json();
+        })
        .then(data => {
-         setproduct(data),
-         setloading(false)
-     })
+         setproduct(data);
+         setloading(false);
+       })
+       .catch((err) => {
+          console.error("Error fetching product:", err);
+          setloading(false);
+       })
   },[unwrappedParams.id]); //it will make the page refresh once the id changed
 
  if(loading){
@@ -50,18 +59,20 @@ export default function ProductDetailPage({ params }) {
     return <p>Product not Found...!</p>
  }
 
-  const activeVariant = product.variants[variantIndex] || product.variants[0];
-  const isInStock = activeVariant.stock > 0;
+  const activeVariant = product.variants ? product.variants[variantIndex] || product.variants[0] : null;
+  const isInStock = activeVariant?.stock > 0;
   const estimate = calculateDeliveryEstimate(selectedCity.name, isInStock);
 
 
   const handleAddToCart = () => {
+    if(!activeVariant) return; // Ensure a variant is selected before adding to cart
     addToCart(product, activeVariant, quantity);
     setAddedNotice(true);
     setTimeout(() => setAddedNotice(false), 2500);
   };
 
   const handleBuyNow = () => {
+    if(!activeVariant) return;
     addToCart(product, activeVariant, quantity);
     router.push("/checkout");
   };
@@ -87,17 +98,15 @@ export default function ProductDetailPage({ params }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 text-xs text-[#222222] font-semibold">
-          {product.rating && (
           <div className="flex items-center gap-1">
             <Star className="w-4 h-4 fill-[#222222] text-[#222222]" />
-            <span>{product.rating}</span>
-            <span className="text-[#717171] font-normal">({product.reviewCount} reviews)</span>
+            <span>{product.rating ?? "No rating"}</span>
+            <span className="text-[#717171] font-normal">({product.reviewCount ? product.reviewCount+" reviews" : "No reviews yet"})</span>
           </div>
-        )}
           <span>•</span>
           <span>Brand: {product.brand}</span>
           <span>•</span>
-          <span className="text-[#717171] font-mono">Central WH SKU: {activeVariant.sku}</span>
+          <span className="text-[#717171] font-mono">Central WH SKU: {activeVariant?.sku?? '-'}</span>
         </div>
       </div>
 
@@ -106,8 +115,13 @@ export default function ProductDetailPage({ params }) {
         <img
           src={product.image_url}
           alt={product.name}
+          onError ={(e) =>{
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = '/placeholder.png';
+          }}
           className="w-full h-full object-cover"
         />
+
         {product.badge && (
           <span className="absolute top-4 left-4 px-3 py-1 bg-white/90 text-[#222222] font-bold text-xs rounded-full shadow-sm">
             {product.badge}
@@ -132,16 +146,16 @@ export default function ProductDetailPage({ params }) {
           <div className="border-b border-[#EBEBEB] pb-6 space-y-3">
             <div className="flex items-center justify-between text-xs font-bold text-[#222222]">
               <span>Choose Variant Option</span>
-              <span className="text-[#717171] font-normal">{activeVariant.name}</span>
+              <span className="text-[#717171] font-normal">{activeVariant?.variant_name}</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {product.variants.map((variant, idx) => {
+              {product.variants?.map((variant, idx) => {
                 const isSelected = idx === variantIndex;
-                const vStock = variant.stock > 0;
+                const vStock = variant?.stock > 0;
                 return (
                   <button
-                    key={variant.id}
+                    key={variant.variant_id}
                     type="button"
                     onClick={() => setVariantIndex(idx)}
                     className={`p-4 rounded-2xl text-left border transition-all flex items-center justify-between ${
@@ -151,9 +165,9 @@ export default function ProductDetailPage({ params }) {
                     }`}
                   >
                     <div className="space-y-1">
-                      <div className="font-bold text-xs text-[#222222]">{variant.name}</div>
+                      <div className="font-bold text-xs text-[#222222]">{variant.variant_name}</div>
                       <div className="text-[11px] font-mono text-[#717171]">
-                        ${variant.price.toFixed(2)} • {variant.sku}
+                        ${variant?.price?.toFixed(2) ?? '-'} • {variant?.sku ?? '-'}
                       </div>
                     </div>
                     <span
@@ -161,7 +175,7 @@ export default function ProductDetailPage({ params }) {
                         vStock ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"
                       }`}
                     >
-                      {vStock ? `${variant.stock} in stock` : "Backorder"}
+                      {vStock ? `${variant?.stock} in stock` : "Backorder"}
                     </span>
                   </button>
                 );
@@ -204,13 +218,13 @@ export default function ProductDetailPage({ params }) {
             <div className="flex items-baseline justify-between border-b border-[#EBEBEB] pb-4">
               <div>
                 <span className="text-3xl font-black text-[#222222]">
-                  ${activeVariant.price.toFixed(2)}
+                  ${activeVariant?.price?.toFixed(2) ?? '-'}
                 </span>
                 <span className="text-xs text-[#717171] ml-1">/ unit</span>
               </div>
               <div className="flex items-center gap-1 text-xs font-bold text-[#222222]">
                 <Star className="w-3.5 h-3.5 fill-[#222222] text-[#222222]" />
-                <span>{product.rating}</span>
+                <span>{product.rating ?? "No rating yet"}</span>
               </div>
             </div>
 
@@ -269,7 +283,7 @@ export default function ProductDetailPage({ params }) {
                 <span className="px-3 font-bold text-[#222222] font-mono">{quantity}</span>
                 <button
                   type="button"
-                  disabled={quantity >= (activeVariant.stock || 10)}
+                  disabled={quantity >= (activeVariant?.stock || 10)}
                   onClick={() => setQuantity((q) => q + 1)}
                   className="w-7 h-7 rounded-full bg-white text-[#222222] flex items-center justify-center disabled:opacity-30 shadow-2xs font-bold"
                 >

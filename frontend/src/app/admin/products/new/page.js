@@ -20,7 +20,7 @@ export default function AddProductPage() {
   const[submitting, setSubmitting] = useState(false); //For preventing user from resubmitting the same product
 
   useEffect(() =>{
-    fetch("http://localhost:8000/api/categories")
+    fetch(`${process.env.NEXT_PUBLIC_URL}/api/categories`)
     .then(response => response.json())
     .then(data => {
       setCategories(data);
@@ -71,7 +71,7 @@ export default function AddProductPage() {
     
     try {
       setSubmitting(true);
-      const response = await fetch("http://localhost:8000/api/products",
+      const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/products`,
         {
           method : 'POST',
           headers : {'Content-type' : 'application/json'},
