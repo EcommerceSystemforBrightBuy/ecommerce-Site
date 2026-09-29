@@ -34,7 +34,7 @@ export default function EditProductPage({ params }) {
       setName(data.name);
       setBrand(data.brand);
       setBadge(data.badge ?? "");
-      setImage(data.image ?? "");
+      setImage(data.image_url ?? "");
       setDescription(data.description);
       setVariants(data.variants.map(v =>(
         {...v, stock: v.stock ?? 0}
