@@ -10,17 +10,17 @@ export default function AddProductPage() {
 
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
-  const [category, setCategory] = useState("");
   const [badge, setBadge] = useState("");
   const [description, setDescription] = useState("");
   const [image, setImage] = useState("");
 
   const[categories, setCategories] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
   const[loading, setLoading] = useState(true);
   const[submitting, setSubmitting] = useState(false); //For preventing user from resubmitting the same product
 
   useEffect(() =>{
-    fetch("http://localhost:8000/api/categories")
+    fetch(`${process.env.NEXT_PUBLIC_URL}/api/categories`)
     .then(response => response.json())
     .then(data => {
       setCategories(data);
@@ -66,12 +66,25 @@ export default function AddProductPage() {
     );
   };
 
+  const toggleCategory = (category_name) =>{
+    setSelectedCategories((prev) =>
+      prev.includes(category_name) ?
+      prev.filter((c) => c !== category_name) : [...prev, category_name]
+    );
+  };
+
   const handleSubmit = async(e) => {
     e.preventDefault();
     
     try {
+
+      if(selectedCategories.length === 0){
+        alert("Select at least one category");
+        return;
+      }
+      
       setSubmitting(true);
-      const response = await fetch("http://localhost:8000/api/products",
+      const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/products`,
         {
           method : 'POST',
           headers : {'Content-type' : 'application/json'},
@@ -79,7 +92,7 @@ export default function AddProductPage() {
             product_name : name,
             brand : brand,
             badge : badge,
-            category : category,
+            categories : selectedCategories,
             image_url : image,
             description : description,
             variants : variants
@@ -92,7 +105,7 @@ export default function AddProductPage() {
         throw new Error(data.error || "Failed to Create product..!")
       }
 
-      alert("Product created Successdully");
+      alert("Product created Successfully");
       router.push("/admin/products");
     } catch (err) {
       console.error("Creation failed:", err);
@@ -155,19 +168,31 @@ export default function AddProductPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-[#222222] font-bold mb-1">Category</label>
-              <select
-                required
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs font-bold text-[#222222]"
-              >
-                <option value="">Select a Category</option>
-                {categories.map(c =>{
-                  return<option key={c.category_id} value={c.category_name}>{c.category_name}</option>
-                })}
-              </select>
+            <div className="sm:col-span-2">
+              <label className="block text-[#222222] font-bold mb-2">
+                Categories <span className="text-[#717171] font-normal">(select one or more)</span>
+              </label>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map(c =>{
+                    const isSelected = selectedCategories.includes(c.category_name);
+                    
+                    return(
+                       <button
+                        key={c.category_id}
+                        type="button"
+                        onClick={() => toggleCategory(c.category_name)}
+                        className={`px-4 py-2 rounded-full text-xs font-semibold border transition-all ${
+                          isSelected
+                            ? "bg-[#222222] text-white border-[#222222]"
+                            : "bg-white text-[#222222] border-[#DDDDDD] hover:border-[#222222]"
+                        }`}
+                      >
+                        {isSelected && "✓ "}
+                        {c.category_name}
+                      </button>
+                    )
+                  })}
+                </div>
             </div>
 
             <div>
@@ -188,15 +213,21 @@ export default function AddProductPage() {
                 required
                 value={image}
                 onChange={(e) => setImage(e.target.value)}
-                onError={(e) => { 
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = '/placeholder.png';
-                }}
                 placeholder="https://images.abc.com/..."
                 className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
-              />
+                />
               {image && (
-                  <img src={image} alt="Preview" className="mt-2 h-24 rounded-xl object-cover" />
+                <img 
+                  src={image} 
+                  alt="Preview" 
+                  className="mt-2 h-24 
+                  rounded-xl 
+                  object-cover" 
+                  onError={(e) => { 
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/placeholder.png';
+                  }}
+                  />
               )}
             </div>
 

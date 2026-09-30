@@ -29,7 +29,7 @@ export default function AdminProductsPage() {
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/products/admin")
+    fetch(`${process.env.NEXT_PUBLIC_URL}/api/products/admin`)
       .then((response) => response.json())
       .then((data) => {
         setProducts(data);
@@ -42,7 +42,7 @@ export default function AdminProductsPage() {
   }, []);
 
   useEffect(() =>{
-    fetch("http://localhost:8000/api/categories")
+    fetch(`${process.env.NEXT_PUBLIC_URL}/api/categories`)
     .then(response => response.json())
     .then(data => {
       setCategories(data);
@@ -74,7 +74,7 @@ export default function AdminProductsPage() {
     try {
         setSubmitting(true);
 
-        const response = await fetch(`http://localhost:8000/api/products/${deleteProduct.product_id}`,{
+        const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/products/${deleteProduct.product_id}`,{
           method : 'DELETE',
         })
 

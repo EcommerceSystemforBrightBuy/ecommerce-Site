@@ -23,7 +23,7 @@ export default function EditProductPage({ params }) {
   const [variants, setVariants] = useState([]);
 
   useEffect(()=>{
-    fetch(`http://localhost:8000/api/products/${unwrappedParams.id}`)
+    fetch(`${process.env.NEXT_PUBLIC_URL}/api/products/${unwrappedParams.id}`)
     .then(response =>{
       if(!response.ok) throw new Error("Product not found");
       return response.json();
@@ -34,7 +34,7 @@ export default function EditProductPage({ params }) {
       setName(data.name);
       setBrand(data.brand);
       setBadge(data.badge ?? "");
-      setImage(data.image ?? "");
+      setImage(data.image_url ?? "");
       setDescription(data.description);
       setVariants(data.variants.map(v =>(
         {...v, stock: v.stock ?? 0}
@@ -47,7 +47,7 @@ export default function EditProductPage({ params }) {
   },[unwrappedParams.id]);
 
   useEffect(() => {
-  fetch("http://localhost:8000/api/categories")
+  fetch(`${process.env.NEXT_PUBLIC_URL}/api/categories`)
     .then(response => response.json())
     .then(data => {
       setCategories(data)
@@ -75,7 +75,7 @@ export default function EditProductPage({ params }) {
     setSubmitting(true);
 
     try {
-        const response = await fetch(`http://localhost:8000/api/products/${unwrappedParams.id}`,{
+        const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/products/${unwrappedParams.id}`,{
           method : 'PUT',
           headers : {'Content-type' :'application/json'},
           body : JSON.stringify({

@@ -21,7 +21,7 @@ export default function ProductsSearchPage() {
       if(selectedCat !== "all") params.append("category", selectedCat);
       if(searchQuery.trim()) params.append("search",searchQuery.trim());
 
-      fetch(`http://localhost:8000/api/products?${params.toString()}`)
+      fetch(`${process.env.NEXT_PUBLIC_URL}/api/products?${params.toString()}`)
       .then(response => {
         if(!response.ok) throw new Error("Error fetching products")
           return response.json()
@@ -36,7 +36,7 @@ export default function ProductsSearchPage() {
   },[selectedCat, searchQuery]);
 
   useEffect(() =>{
-    fetch("http://localhost:8000/api/categories")
+    fetch(`${process.env.NEXT_PUBLIC_URL}/api/categories`)
     .then(response => response.json())
     .then(data => setCategories(data))
     .catch(err => console.log("Error fetching categories",err))

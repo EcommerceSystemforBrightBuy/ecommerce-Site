@@ -18,49 +18,49 @@ INSERT INTO category (category_id, category_name, description) VALUES ('CAT12', 
 
 -- Total products: 43
 -- ================= PRODUCT =================
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD001', 'Zynox Phone X1', 'Zynox', 'Flagship smartphone with OLED display', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD002', 'Zynox Phone X1 Lite', 'Zynox', 'Budget smartphone with dual camera', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD003', 'Orbit S9', 'Orbit', 'Mid-range smartphone with fast charging', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD004', 'Orbit S9 Pro', 'Orbit', 'Premium smartphone with triple camera', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD005', 'Vantel Basic', 'Vantel', 'Simple feature phone for calls and texts', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD006', 'Coreline Air 14', 'Coreline', 'Lightweight ultrabook for everyday use', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD007', 'Coreline Pro 15', 'Coreline', 'High-performance laptop for professionals', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD008', 'Nimbus Book 13', 'Nimbus', 'Compact laptop with all-day battery', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD009', 'Nimbus Gamer G5', 'Nimbus', 'Gaming laptop with dedicated GPU', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD010', 'SoundWave Buds Pro', 'SoundWave', 'Noise-cancelling wireless earbuds', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD011', 'SoundWave Buds Lite', 'SoundWave', 'Affordable wireless earbuds', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD012', 'BassCore Headphones', 'BassCore', 'Over-ear headphones with deep bass', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD013', 'BassCore Mini Speaker', 'BassCore', 'Portable Bluetooth speaker', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD014', 'PixelShot D200', 'PixelShot', 'Entry-level DSLR camera', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD015', 'PixelShot Mirror M5', 'PixelShot', 'Compact mirrorless camera', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD016', 'ActionCam GO', 'ActionCam', 'Waterproof action camera', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD017', 'PixelShot Tripod Kit', 'PixelShot', 'Adjustable camera tripod', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD018', 'PlayNext Console X', 'PlayNext', 'Next-gen home gaming console', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD019', 'PlayNext Controller', 'PlayNext', 'Wireless game controller', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD020', 'PlayNext Handheld', 'PlayNext', 'Portable handheld gaming device', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD021', 'GripPro Racing Wheel', 'GripPro', 'Racing wheel with pedals', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD022', 'PulseFit Watch 3', 'PulseFit', 'Smartwatch with heart rate monitor', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD023', 'PulseFit Band Lite', 'PulseFit', 'Basic fitness tracker band', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD024', 'PulseFit Watch Kids', 'PulseFit', 'Smartwatch designed for children', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD025', 'HomeSync Speaker', 'HomeSync', 'Smart speaker with voice assistant', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD026', 'HomeSync Plug', 'HomeSync', 'Wi-Fi smart plug', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD027', 'HomeSync Cam', 'HomeSync', 'Indoor security camera', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD028', 'SlatePad 10', 'SlatePad', '10-inch tablet for browsing and media', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD029', 'SlatePad Mini', 'SlatePad', 'Compact 8-inch tablet', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD030', 'SlatePad Kids', 'SlatePad', 'Durable tablet designed for children', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD031', 'HeroForge Warrior', 'HeroForge', 'Poseable action figure, 6 inch', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD032', 'HeroForge Dragon Beast', 'HeroForge', 'Collectible dragon figure', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD033', 'GalaxyToys Star Fighter', 'GalaxyToys', 'Spaceship collectible model', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD034', 'GalaxyToys Robot Set', 'GalaxyToys', 'Transforming robot figure set', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD035', 'BrainBox Strategy', 'BrainBox', 'Classic strategy board game', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD036', 'BrainBox Family Fun', 'BrainBox', 'Family board game for all ages', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD037', 'PuzzleWorks 1000pc', 'PuzzleWorks', '1000-piece jigsaw puzzle', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD038', 'SmartBuild Blocks', 'SmartBuild', 'STEM building block set', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD039', 'SmartBuild Circuit Kit', 'SmartBuild', 'Beginner electronics learning kit', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD040', 'LearnLab Microscope', 'LearnLab', 'Kids'' science microscope kit', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD041', 'TurboRC Racer', 'TurboRC', 'High-speed remote control car', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD042', 'TurboRC Monster Truck', 'TurboRC', 'Off-road remote control truck', TRUE, NOW());
-INSERT INTO product (product_id, product_name, brand, description, is_active, created_at) VALUES ('PRD043', 'SkyDrone Mini', 'SkyDrone', 'Beginner-friendly mini drone', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD001', 'Zynox Phone X1', 'Zynox', 'Flagship smartphone with OLED display', 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD002', 'Zynox Phone X1 Lite', 'Zynox', 'Budget smartphone with dual camera', 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD003', 'Orbit S9', 'Orbit', 'Mid-range smartphone with fast charging', 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD004', 'Orbit S9 Pro', 'Orbit', 'Premium smartphone with triple camera', 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD005', 'Vantel Basic', 'Vantel', 'Simple feature phone for calls and texts', 'https://images.unsplash.com/photo-1559312379-6eff3ba65888?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD006', 'Coreline Air 14', 'Coreline', 'Lightweight ultrabook for everyday use', 'https://images.unsplash.com/photo-1541807084-5c52b6b3adef?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD007', 'Coreline Pro 15', 'Coreline', 'High-performance laptop for professionals', 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD008', 'Nimbus Book 13', 'Nimbus', 'Compact laptop with all-day battery', 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD009', 'Nimbus Gamer G5', 'Nimbus', 'Gaming laptop with dedicated GPU', 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD010', 'SoundWave Buds Pro', 'SoundWave', 'Noise-cancelling wireless earbuds', 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD011', 'SoundWave Buds Lite', 'SoundWave', 'Affordable wireless earbuds', 'https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD012', 'BassCore Headphones', 'BassCore', 'Over-ear headphones with deep bass', 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD013', 'BassCore Mini Speaker', 'BassCore', 'Portable Bluetooth speaker', 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD014', 'PixelShot D200', 'PixelShot', 'Entry-level DSLR camera', 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD015', 'PixelShot Mirror M5', 'PixelShot', 'Compact mirrorless camera', 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD016', 'ActionCam GO', 'ActionCam', 'Waterproof action camera', 'https://images.unsplash.com/photo-1477160814815-7f4479b86c97?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD017', 'PixelShot Tripod Kit', 'PixelShot', 'Adjustable camera tripod', 'https://images.unsplash.com/photo-1545254000-6c843440c5cd?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD018', 'PlayNext Console X', 'PlayNext', 'Next-gen home gaming console', 'https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD019', 'PlayNext Controller', 'PlayNext', 'Wireless game controller', 'https://images.unsplash.com/photo-1592840496694-26d035b52b48?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD020', 'PlayNext Handheld', 'PlayNext', 'Portable handheld gaming device', 'https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD021', 'GripPro Racing Wheel', 'GripPro', 'Racing wheel with pedals', 'https://images.unsplash.com/photo-1760553121003-93afc4d88ae0?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD022', 'PulseFit Watch 3', 'PulseFit', 'Smartwatch with heart rate monitor', 'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD023', 'PulseFit Band Lite', 'PulseFit', 'Basic fitness tracker band', 'https://images.unsplash.com/photo-1575311373937-040b8e1fd5b6?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD024', 'PulseFit Watch Kids', 'PulseFit', 'Smartwatch designed for children', 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD025', 'HomeSync Speaker', 'HomeSync', 'Smart speaker with voice assistant', 'https://images.unsplash.com/photo-1543512214-318c7553f230?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD026', 'HomeSync Plug', 'HomeSync', 'Wi-Fi smart plug', 'https://images.unsplash.com/photo-1610056494071-9373f12bf769?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD027', 'HomeSync Cam', 'HomeSync', 'Indoor security camera', 'https://images.unsplash.com/photo-1481597262637-0545b18186ea?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD028', 'SlatePad 10', 'SlatePad', '10-inch tablet for browsing and media', 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD029', 'SlatePad Mini', 'SlatePad', 'Compact 8-inch tablet', 'https://images.unsplash.com/photo-1561154464-82e9adf32764?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD030', 'SlatePad Kids', 'SlatePad', 'Durable tablet designed for children', 'https://images.unsplash.com/photo-1542751110-97427bbecf20?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD031', 'HeroForge Warrior', 'HeroForge', 'Poseable action figure, 6 inch', 'https://images.unsplash.com/photo-1608278047522-58806a6ac85b?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD032', 'HeroForge Dragon Beast', 'HeroForge', 'Collectible dragon figure', 'https://images.unsplash.com/photo-1577493340887-b7bfff550145?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD033', 'GalaxyToys Star Fighter', 'GalaxyToys', 'Spaceship collectible model', 'https://images.unsplash.com/photo-1608889825103-eb5ed706fc64?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD034', 'GalaxyToys Robot Set', 'GalaxyToys', 'Transforming robot figure set', 'https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD035', 'BrainBox Strategy', 'BrainBox', 'Classic strategy board game', 'https://images.unsplash.com/photo-1606503153255-59d8b8b82176?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD036', 'BrainBox Family Fun', 'BrainBox', 'Family board game for all ages', 'https://images.unsplash.com/photo-1632501641765-e568d28b0015?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD037', 'PuzzleWorks 1000pc', 'PuzzleWorks', '1000-piece jigsaw puzzle', 'https://images.unsplash.com/photo-1494059980473-813e73ee784b?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD038', 'SmartBuild Blocks', 'SmartBuild', 'STEM building block set', 'https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD039', 'SmartBuild Circuit Kit', 'SmartBuild', 'Beginner electronics learning kit', 'https://images.unsplash.com/photo-1555664424-778a1e5e1b48?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD040', 'LearnLab Microscope', 'LearnLab', 'Kids'' science microscope kit', 'https://images.unsplash.com/photo-1582719471384-894fbb16e074?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD041', 'TurboRC Racer', 'TurboRC', 'High-speed remote control car', 'https://images.unsplash.com/photo-1594787318286-3d835c1d207f?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD042', 'TurboRC Monster Truck', 'TurboRC', 'Off-road remote control truck', 'https://images.unsplash.com/photo-1684770953325-b6a4310b3c57?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
+INSERT INTO product (product_id, product_name, brand, description, image_url, is_active, created_at) VALUES ('PRD043', 'SkyDrone Mini', 'SkyDrone', 'Beginner-friendly mini drone', 'https://images.unsplash.com/photo-1507582020474-9a35b7d455d9?w=800&q=80&auto=format&fit=crop', TRUE, NOW());
 
 -- ================= PRODUCT_CATEGORY =================
 INSERT INTO product_category (product_id, category_id) VALUES ('PRD001', 'CAT01');
@@ -239,7 +239,7 @@ INSERT INTO customer (customer_id, user_id) VALUES
 
 -- Dummy product feedback
 
-INSERT INTO product_feedback (feedback_id, product_id, customer_id, rating, comment, created_at) VALUES
+INSERT INTO product_feedback (feedback_id, product_id, customer_id, rating, review, created_at) VALUES
 ('FB001', 'PRD001', 'CUST001', 5, 'Amazing display and camera quality. Worth every dollar.', NOW()),
 ('FB002', 'PRD001', 'CUST002', 4, 'Great phone, battery could last a bit longer.', NOW()),
 ('FB003', 'PRD002', 'CUST003', 4, 'Good budget option, camera is decent for the price.', NOW()),
@@ -260,3 +260,66 @@ INSERT INTO product_feedback (feedback_id, product_id, customer_id, rating, comm
 ('FB018', 'PRD035', 'CUST003', 4, 'Fun strategy game for family game nights.', NOW()),
 ('FB019', 'PRD038', 'CUST004', 5, 'Great STEM toy, kept my daughter engaged for hours.', NOW()),
 ('FB020', 'PRD041', 'CUST005', 4, 'Fast RC car, holds up well on rough terrain.', NOW());
+
+-- Dummy inventory data
+INSERT INTO inventory (inventory_id, variant_id, quantity_on_hand, reorder_level, last_restocked_at) VALUES
+('INV001', 'VAR001', 18, 10, NOW()),
+('INV002', 'VAR002', 31, 10, NOW()),
+('INV003', 'VAR003', 44, 10, NOW()),
+('INV004', 'VAR004', 57, 10, NOW()),
+('INV005', 'VAR005', 10, 10, NOW()),
+('INV006', 'VAR006', 23, 10, NOW()),
+('INV007', 'VAR007', 0, 10, NOW()),
+('INV008', 'VAR008', 49, 10, NOW()),
+('INV009', 'VAR009', 62, 10, NOW()),
+('INV010', 'VAR010', 15, 10, NOW()),
+('INV011', 'VAR011', 28, 10, NOW()),
+('INV012', 'VAR012', 41, 10, NOW()),
+('INV013', 'VAR013', 54, 10, NOW()),
+('INV014', 'VAR014', 0, 10, NOW()),
+('INV015', 'VAR015', 20, 10, NOW()),
+('INV016', 'VAR016', 33, 10, NOW()),
+('INV017', 'VAR017', 46, 10, NOW()),
+('INV018', 'VAR018', 59, 10, NOW()),
+('INV019', 'VAR019', 12, 10, NOW()),
+('INV020', 'VAR020', 25, 10, NOW()),
+('INV021', 'VAR021', 0, 10, NOW()),
+('INV022', 'VAR022', 51, 10, NOW()),
+('INV023', 'VAR023', 64, 10, NOW()),
+('INV024', 'VAR024', 17, 10, NOW()),
+('INV025', 'VAR025', 30, 10, NOW()),
+('INV026', 'VAR026', 43, 10, NOW()),
+('INV027', 'VAR027', 56, 10, NOW()),
+('INV028', 'VAR028', 0, 10, NOW()),
+('INV029', 'VAR029', 22, 10, NOW()),
+('INV030', 'VAR030', 35, 10, NOW()),
+('INV031', 'VAR031', 48, 10, NOW()),
+('INV032', 'VAR032', 61, 10, NOW()),
+('INV033', 'VAR033', 14, 10, NOW()),
+('INV034', 'VAR034', 27, 10, NOW()),
+('INV035', 'VAR035', 0, 10, NOW()),
+('INV036', 'VAR036', 53, 10, NOW()),
+('INV037', 'VAR037', 6, 10, NOW()),
+('INV038', 'VAR038', 19, 10, NOW()),
+('INV039', 'VAR039', 32, 10, NOW()),
+('INV040', 'VAR040', 45, 10, NOW()),
+('INV041', 'VAR041', 58, 10, NOW()),
+('INV042', 'VAR042', 0, 10, NOW()),
+('INV043', 'VAR043', 24, 10, NOW()),
+('INV044', 'VAR044', 37, 10, NOW()),
+('INV045', 'VAR045', 50, 10, NOW()),
+('INV046', 'VAR046', 63, 10, NOW()),
+('INV047', 'VAR047', 16, 10, NOW()),
+('INV048', 'VAR048', 29, 10, NOW()),
+('INV049', 'VAR049', 0, 10, NOW()),
+('INV050', 'VAR050', 55, 10, NOW()),
+('INV051', 'VAR051', 8, 10, NOW()),
+('INV052', 'VAR052', 21, 10, NOW()),
+('INV053', 'VAR053', 34, 10, NOW()),
+('INV054', 'VAR054', 47, 10, NOW()),
+('INV055', 'VAR055', 60, 10, NOW()),
+('INV056', 'VAR056', 0, 10, NOW()),
+('INV057', 'VAR057', 26, 10, NOW()),
+('INV058', 'VAR058', 39, 10, NOW()),
+('INV059', 'VAR059', 52, 10, NOW()),
+('INV060', 'VAR060', 5, 10, NOW());

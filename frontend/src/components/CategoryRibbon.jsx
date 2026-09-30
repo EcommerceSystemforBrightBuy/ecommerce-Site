@@ -15,7 +15,7 @@ export default function CategoryRibbon({ selectedCategory, onSelectCategory }) {
   const[categories, setcategories] = useState([]);
   
   useEffect(()=>{
-    fetch('http://localhost:8000/api/categories')
+    fetch(`${process.env.NEXT_PUBLIC_URL}/api/categories`)
     .then(response => response.json())
     .then(data => setcategories(data))
   },[]);

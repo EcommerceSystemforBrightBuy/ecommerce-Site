@@ -9,9 +9,9 @@ const pool = createPool({
     password : process.env.DB_PASSWORD,
     connectionLimit : 10,  //Allowing only 10 connection at a time to make connections.
     connectTimeout : 10000, //Maximumm time for establish a connection (10 sec).
-    // ssl : {
-    //     rejectUnauthorized : true //it only allow authorized connections
-    // }
+    ssl : {
+        rejectUnauthorized : false //for self-signed certificates, set to false. In production, set to true for security.
+    }
 })
 
 module.exports = pool.promise();
