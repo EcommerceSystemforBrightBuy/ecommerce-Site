@@ -115,14 +115,14 @@ const createProduct = async(req, res) => {
            product_name,
            brand,
            badge,
-           category,
+           categories,
            image_url,
            description,
            variants,
     } = req.body;
 
-    if(!product_name || !category){
-        return res.status(400).json({error : "product_name and category are required"});
+    if(!product_name || !categories || categories.length === 0){
+        return res.status(400).json({error : "product_name and at least one category are required"});
     }
     
     if(!Array.isArray(variants) || variants.length === 0){
@@ -158,17 +158,23 @@ const createProduct = async(req, res) => {
         );
         
         //Inserting category
-        const [catResult] =await Connection.execute(
-            "Insert into product_category (product_id, category_id) select ?, category_id from category where category_name = ?",
-            [
-                product_id,
-                category
-            ]
-        )
+        const uniquesCategories = [...new Set(categories)];
+        if(categories){
+            for(const cat of uniquesCategories){
+                const [catResult] =await Connection.execute(
+                    "Insert into product_category (product_id, category_id) select ?, category_id from category where category_name = ?",
+                    [
+                        product_id,
+                        cat
+                    ]
+                )
 
-        if(catResult.affectedRows === 0){
-            throw new Error("Invalid Category");
+                if(catResult.affectedRows === 0){
+                    throw new Error("Invalid Category");
+                }
+            }
         }
+
 
         //Inserting variants
         if(variants.length !== 0){
