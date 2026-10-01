@@ -246,7 +246,7 @@ const updateProduct = async(req, res) =>{
         up_product_name,
         up_product_brand,
         up_product_badge,
-        up_product_category,
+        up_product_categories,
         up_product_image,
         up_product_description,
         up_variants
@@ -275,22 +275,31 @@ const updateProduct = async(req, res) =>{
             product[0].badge = up_product_badge
         }
 
-        if(up_product_category !== undefined){
+        if(up_product_categories !== undefined){
+            if(!Array.isArray(up_product_categories) || up_product_categories.length === 0){
+                throw new Error("At least one category is required");
+            }
+
             await Connection.execute(
                 "Delete from product_category where product_id = ?",
                 [req.params.id]
             )
 
-            const [catResult] = await Connection.execute(
-                "Insert into product_category (product_id, category_id) select ?, category_id from category where category_name = ?",
-                [
-                    req.params.id, 
-                    up_product_category
-                ]
-            );
-
-            if(catResult.affectedRows === 0){
-                throw new Error("Invalid Category");
+            const unique_categories = [...new Set(up_product_categories)];
+            if(unique_categories){
+                for(const cat of unique_categories){
+                    const [catResult] = await Connection.execute(
+                        "Insert into product_category (product_id, category_id) select ?, category_id from category where category_name = ?",
+                        [
+                            req.params.id, 
+                            cat
+                        ]
+                    );
+        
+                    if(catResult.affectedRows === 0){
+                        throw new Error("Invalid Category");
+                    }
+                }
             }
         }
 

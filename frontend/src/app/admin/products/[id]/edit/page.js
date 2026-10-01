@@ -18,7 +18,7 @@ export default function EditProductPage({ params }) {
   const [badge, setBadge] = useState("");
   const [image, setImage] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState([]);
   const [categories, setCategories] = useState([]);
   const [variants, setVariants] = useState([]);
 
@@ -39,6 +39,9 @@ export default function EditProductPage({ params }) {
       setVariants(data.variants.map(v =>(
         {...v, stock: v.stock ?? 0}
       )));
+      setSelectedCategories(
+        (data.categories ?? []).map(c => c.category_name).filter(Boolean)
+      );
     })
     .catch((err) =>{
         console.error("error:",err);
@@ -51,7 +54,6 @@ export default function EditProductPage({ params }) {
     .then(response => response.json())
     .then(data => {
       setCategories(data)
-      setCategory(data[0]?.category_name || "");
     })
     .catch(err => console.error(err));
   }, []);
@@ -70,8 +72,22 @@ export default function EditProductPage({ params }) {
     );
   };
 
+  const toggleCategory = (category_name) =>{
+      setSelectedCategories((prev) =>
+          prev.includes(category_name)
+          ? prev.filter((c) => c !== category_name)
+          : [...prev, category_name]
+      );
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
+
+    if(selectedCategories.length === 0){
+      alert("Select at least one category");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -82,7 +98,7 @@ export default function EditProductPage({ params }) {
             up_product_name : name,
             up_product_brand : brand,
             up_product_badge : badge,
-            up_product_category : category,
+            up_product_categories : selectedCategories,
             up_product_image : image,
             up_product_description : description,
             up_variants : variants
@@ -150,7 +166,7 @@ export default function EditProductPage({ params }) {
               />
             </div>
 
-            <div>
+            <div className="sm:col-span-2">
               <label className="block text-[#222222] font-bold mb-1">Badge</label>
               <input
                 type="text"
@@ -161,19 +177,35 @@ export default function EditProductPage({ params }) {
               />
             </div>
 
-            <div>
-              <label className="block text-[#222222] font-bold mb-1">Category</label>
-              <select
-                required
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs font-bold text-[#222222]"
-              >
-                <option value="">Select a Category</option>
-                {categories.map(c =>{
-                  return<option key={c.category_id} value={c.category_name}>{c.category_name}</option>
-                })}
-              </select>
+            <br></br>
+            <div className="sm:col-span-2">
+              <p className="text-[11px] text-[#717171] mt-2">
+                {selectedCategories.length} selected
+              </p>
+              <label className="block text-[#222222] font-bold mb-2">
+                Categories <span className="text-[#717171] font-normal">(Select all that apply)</span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                  {categories.map(c =>{
+                    const isSelected = selectedCategories.includes(c.category_name);
+                    
+                    return(
+                       <button
+                        key={c.category_id}
+                        type="button"
+                        onClick={() => toggleCategory(c.category_name)}
+                        className={`px-4 py-2 rounded-full text-xs font-semibold border transition-all ${
+                          isSelected
+                            ? "bg-[#222222] text-white border-[#222222]"
+                            : "bg-white text-[#222222] border-[#DDDDDD] hover:border-[#222222]"
+                        }`}
+                      >
+                        {isSelected && "✓ "}
+                        {c.category_name}
+                      </button>
+                    )
+                  })}
+               </div>
             </div>
 
             <div className="sm:col-span-2">
@@ -191,7 +223,17 @@ export default function EditProductPage({ params }) {
                 className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
               />
               {image && (
-                  <img src={image} alt="Preview" className="mt-2 h-24 rounded-xl object-cover" />
+                  <div className="mt-3 w-40 h-40 rounded-2xl overflow-hidden border border-[#DDDDDD] bg-[#F7F7F7]">
+                    <img
+                      src={image}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = "/placeholder.png";
+                      }}
+                    />
+                  </div>
               )}
             </div>
 

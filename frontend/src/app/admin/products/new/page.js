@@ -169,6 +169,9 @@ export default function AddProductPage() {
             </div>
 
             <div className="sm:col-span-2">
+              <p className="text-[11px] text-[#717171] mt-2">
+                {selectedCategories.length} selected
+              </p>
               <label className="block text-[#222222] font-bold mb-2">
                 Categories <span className="text-[#717171] font-normal">(select one or more)</span>
               </label>
@@ -217,17 +220,17 @@ export default function AddProductPage() {
                 className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
                 />
               {image && (
-                <img 
-                  src={image} 
-                  alt="Preview" 
-                  className="mt-2 h-24 
-                  rounded-xl 
-                  object-cover" 
-                  onError={(e) => { 
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = '/placeholder.png';
-                  }}
-                  />
+                  <div className="mt-3 w-40 h-40 rounded-2xl overflow-hidden border border-[#DDDDDD] bg-[#F7F7F7]">
+                    <img
+                      src={image}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = "/placeholder.png";
+                      }}
+                    />
+                  </div>
               )}
             </div>
 
