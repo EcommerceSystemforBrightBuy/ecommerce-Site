@@ -175,7 +175,6 @@ const createProduct = async(req, res) => {
             }
         }
 
-
         //Inserting variants
         if(variants.length !== 0){
             let next_num = 1;
@@ -226,6 +225,30 @@ const createProduct = async(req, res) => {
                         stock
                     ]
                 )
+
+                const [attr_row] = await Connection.execute(
+                    "Select max(cast(substring(attribute_id,4) as unsigned)) as last_attr from product_attribute"
+                );
+                let next_att = (attr_row[0].last_attr || 0) + 1;
+
+                if(Array.isArray(v.attributes)){
+                    for(const attri of v.attributes){
+                        if(!attri.attribute_name || !attri.attribute_value) continue;
+
+                        const attri_id = "ATT" + String(next_att++).padStart(4,"0");
+
+                        await Connection.execute(
+                            "Insert into product_attribute (attribute_id, variant_id, attribute_name, attribute_value) values (?,?,?,?)",
+                            [
+                                attri_id,
+                                variant_id,
+                                attri.attribute_name,
+                                attri.attribute_value
+                            ]
+                        )
+                    }
+                }
+
             }
         }
         

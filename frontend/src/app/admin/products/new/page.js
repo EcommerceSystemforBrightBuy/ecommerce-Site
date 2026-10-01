@@ -38,7 +38,8 @@ export default function AddProductPage() {
       variant_name: "",
       sku: "",
       price: "",
-      stock: ""
+      stock: "",
+      attributes : []
     },
   ]);
 
@@ -50,9 +51,43 @@ export default function AddProductPage() {
         variant_name: "",
         sku: "",
         price: "",
-        stock: ""
+        stock: "",
+        attributes : []
       },
     ]);
+  };
+
+  const addAttribute = (variant_id) => {
+    setVariants((prev) => 
+      prev.map((v) =>
+        v.temp_id === variant_id ?
+        {...v, attributes : [...v.attributes, { attr_id: Date.now(), attribute_name:"", attribute_value:""}]}  
+        : v
+      )
+    )
+  };
+
+
+
+  const updateAttribute = (variant_id, attrId, field, value) => {
+    setVariants((prev) =>
+      prev.map((v) =>
+        v.temp_id === variant_id ?
+        {...v, attributes: v.attributes.map((a) => (
+            a.attr_id === attrId ? {...a, [field] : value} : a))}  
+        : v
+      )
+    );
+  };
+ 
+  const deleteAttribute = (variant_id, attrId) => {
+    setVariants((prev) =>
+      prev.map((v) =>
+        v.temp_id === variant_id ?
+        {...v, attributes : v.attributes.filter((a) => a.attr_id !== attrId)}
+        : v
+      )
+    );
   };
 
   const removeVariantField = (id) => {
@@ -346,11 +381,56 @@ export default function AddProductPage() {
                     />
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
 
+                 <div className="block w-full pt-3 border-t border-[#DDDDDD] space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[11px] font-bold text-[#717171]">
+                      Attributes <span className="font-normal">(Color, Storage, Size...)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => addAttribute(v.temp_id)}
+                      className="bg-[#FF385C] hover:bg-[#E00B41] text-white text-xs font-bold px-3.5 py-2 rounded-full inline-flex items-center gap-1 whitespace-nowrap shrink-0 width:full"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Attribute</span>
+                    </button>
+                  </div>
+
+                  {v.attributes.length === 0 && (
+                    <p className="text-[11px] text-[#717171]">No attributes yet. Optional.</p>
+                  )}
+
+                  {v.attributes.map((a) => (
+                    <div key={a.attr_id} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-center w-full">
+                      <input
+                        type="text"
+                        placeholder="Name (e.g. Color)"
+                        value={a.attribute_name}
+                        onChange={(e) => updateAttribute(v.temp_id, a.attr_id, "attribute_name", e.target.value)}
+                        className="w-full min-w-0 bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs text-[#222222]"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Value (e.g. Black)"
+                        value={a.attribute_value}
+                        onChange={(e) => updateAttribute(v.temp_id, a.attr_id, "attribute_value", e.target.value)}
+                        className="w-full min-w-0 bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs text-[#222222]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => deleteAttribute(v.temp_id, a.attr_id)}
+                        className="p-2 text-[#717171] hover:text-[#FF385C] justify-self-end"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                 </div>
+              </div>
+             ))}
+           </div>
+         </div>
         {/* Submit */}
         <div className="flex justify-end gap-3">
           <Link
