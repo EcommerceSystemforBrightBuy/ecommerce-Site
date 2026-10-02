@@ -3,7 +3,7 @@
 import React, { useState, use, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Warehouse } from "lucide-react";
+import { ArrowLeft, Save, Warehouse, Plus, Trash2} from "lucide-react";
 
 export default function EditProductPage({ params }) {
   const unwrappedParams = use(params);
@@ -36,9 +36,17 @@ export default function EditProductPage({ params }) {
       setBadge(data.badge ?? "");
       setImage(data.image_url ?? "");
       setDescription(data.description);
-      setVariants(data.variants.map(v =>(
-        {...v, stock: v.stock ?? 0}
-      )));
+      setVariants(
+        (data.variants ?? []).map((v) => ({
+          ...v,
+          stock: v.stock ?? 0,
+          attributes: (v.attributes ?? []).map((a,i) => ({
+            attr_id: `${v.variant_id}-${i}`,
+            attribute_name: a.attribute_name ?? "",
+            attribute_value: a.attribute_value ?? "",
+          })),
+        }))
+      );
       setSelectedCategories(
         (data.categories ?? []).map(c => c.category_name).filter(Boolean)
       );
@@ -66,11 +74,54 @@ export default function EditProductPage({ params }) {
     return <p>Product not Found...!</p>
   }
 
-  const updateVariant = (id, field, val) => {
+  const updateVariant = (variantId, field, vlaue) =>{
     setVariants((prev) =>
-      prev.map((v) => (v.variant_id === id ? { ...v, [field]: val } : v))
+      prev.map((v) => (
+        v.variant_id === variantId ?
+        {...v, [field]: value}
+        : v
+      ))  
     );
   };
+  
+  const addAttribute = (variantId) => {
+    setVariants((prev) =>
+    prev.map((v) => 
+      v.variant_id === variantId ? 
+        {...v, attributes : [...v.attributes, {
+            attr_id : Date.now(),
+            attribute_name : "",
+            attribute_value : ""
+        }]}
+        : v
+      )
+    );  
+  };
+
+  const updateAttribute = (variantId, attrID, field, value) => {
+      setVariants((prev) =>
+        prev.map((v) => 
+          v.variant_id === variantId ?
+          { ...v, attributes : v.attributes.map((attri) =>
+              (attri.attr_id === attrID ?
+                  {...attri, [field]: value }
+                  : attri
+              )
+          )}
+          : v
+        )
+      )
+  }
+
+  const removeAttribute = (variantId,attrID) => {
+    setVariants((prev) =>
+      prev.map((v) =>
+        v.variant_id === variantId
+        ?{...v, attributes : v.attributes.filter(attri => attri.attr_id !== attrID )}
+        : v
+      )
+    )
+  } 
 
   const toggleCategory = (category_name) =>{
       setSelectedCategories((prev) =>
@@ -302,6 +353,51 @@ export default function EditProductPage({ params }) {
                     onChange={(e) => updateVariant(v.variant_id, "stock", e.target.value)}
                     className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                   />
+                </div>
+                <div className="block w-full pt-3 border-t border-[#DDDDDD] space-y-3 sm:col-span-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[11px] font-bold text-[#717171]">
+                      Attributes <span className="font-normal">(Color, Storage, Size...)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => addAttribute(v.variant_id)}
+                      className="bg-[#FF385C] hover:bg-[#E00B41] text-white text-xs font-bold px-3.5 py-2 rounded-full inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Attribute</span>
+                    </button>
+                  </div>
+
+                  {v.attributes.length === 0 && (
+                    <p className="text-[11px] text-[#717171]">No attributes yet. Optional.</p>
+                  )}
+
+                  {v.attributes.map((a) => (
+                    <div key={a.attr_id} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-center w-full">
+                      <input
+                        type="text"
+                        placeholder="Name (e.g. Color)"
+                        value={a.attribute_name}
+                        onChange={(e) => updateAttribute(v.variant_id, a.attr_id, "attribute_name", e.target.value)}
+                        className="w-full min-w-0 bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs text-[#222222]"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Value (e.g. Black)"
+                        value={a.attribute_value}
+                        onChange={(e) => updateAttribute(v.variant_id, a.attr_id, "attribute_value", e.target.value)}
+                        className="w-full min-w-0 bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs text-[#222222]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeAttribute(v.variant_id, a.attr_id)}
+                        className="p-2 text-[#717171] hover:text-[#FF385C] justify-self-end"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}

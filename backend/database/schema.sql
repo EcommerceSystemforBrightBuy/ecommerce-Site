@@ -107,6 +107,9 @@ CREATE TABLE category (
     CONSTRAINT pk_category PRIMARY KEY (category_id),
     CONSTRAINT uq_category_name UNIQUE (category_name)
 ) ENGINE = InnoDB;
+
+CREATE INDEX idx_category_name ON category (category_name);
+
 CREATE TABLE subcategory (
     subcategory_id VARCHAR(50) NOT NULL,
     category_id VARCHAR(50) NOT NULL,
@@ -161,6 +164,7 @@ CREATE TABLE product_variant (
 ) ENGINE = InnoDB;
 
 CREATE INDEX idx_variant_product ON product_variant (product_id);
+CREATE INDEX idx_variant_product_default ON product_variant (product_id, is_default);
 
 -- 9. Product Variant Attributes (Color, Storage, Size, etc.)
 

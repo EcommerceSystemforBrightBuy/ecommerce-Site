@@ -325,7 +325,7 @@ const updateProduct = async(req, res) =>{
                 }
             }
         }
-
+        
         if(up_product_image !== undefined){
             product[0].image_url = up_product_image
         }
@@ -385,6 +385,35 @@ const updateProduct = async(req, res) =>{
                         v.variant_id
                     ]
                 )
+
+                //Deleting existing attributes
+                await Connection.execute(
+                    "Delete from product_attribute where variant_id = ?",
+                    [
+                        v.variant_id
+                    ]
+                )
+
+                if(v.attributes && Array.isArray(v.attributes)){
+                    const [row] = await Connection.execute(
+                        "Select max(cast(substring(attribute_id,4) as unsigned)) as last_idx from product_attribute"
+                    );
+                    let next_att = (row[0].last_idx || 0) + 1;
+
+                    for(const attr of v.attributes){
+                        const attribute_id = `ATT${String(next_att++).padStart(4,"0")}`;
+
+                        await Connection.execute(
+                            "Insert into product_attribute (variant_id, attribute_id, attribute_name, attribute_value) values (?,?,?,?)",
+                            [
+                                v.variant_id,
+                                attribute_id,
+                                attr.attribute_name.trim(),
+                                attr.attribute_value
+                            ]
+                        )
+                    }
+                }
             }
         }
 
