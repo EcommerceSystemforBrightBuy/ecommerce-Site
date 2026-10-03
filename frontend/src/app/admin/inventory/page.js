@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import { PRODUCTS } from "@/data/mockData";
 import {
   Warehouse,
@@ -30,6 +30,7 @@ export default function AdminInventoryPage() {
 
   const [skuList, setSkuList] = useState(initialSkus);
   const [searchQuery, setSearchQuery] = useState("");
+  const [deboundedSearch, setDebouncedSearch] = useState("");
   const [stockNotice, setStockNotice] = useState("");
 
   const updateStock = (skuCode, delta) => {
@@ -56,6 +57,14 @@ export default function AdminInventoryPage() {
     );
   });
 
+  useEffect(() =>{
+    const timer = setTimeout(() =>{
+      setDebouncedSearch(searchQuery);
+    }, 300); //set timeout 300 ms for search queries
+
+    return () => clearTimeout(timer);
+  },[searchQuery]);
+  
   return (
     <div className="space-y-6">
       {/* Header */}

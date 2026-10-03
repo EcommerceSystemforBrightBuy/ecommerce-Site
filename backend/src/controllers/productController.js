@@ -1,10 +1,17 @@
 const pool = require('./../config/db')
+const {
+    nextID,
+    insertVariant,
+    insertAttributes,
+    insertCategories,
+    validateVariant
+} = require('./../utills/dbHelpers');
 
 const getAllProducts = async(req, res) => {
     try{
         const {category, search} = req.query;
 
-        let sql_query = 'Select p.product_id,p.product_name as name,p.brand, round(AVG(f.rating), 1) as rating, count(distinct f.feedback_id) as reviewCount, p.description,p.image_url,v.price,v.sku,i.quantity_on_hand as stock,GROUP_CONCAT(DISTINCT c.category_name) as categories from product p left join product_variant v on p.product_id = v.product_id and  v.is_default = True left join inventory i on v.variant_id = i.variant_id left join product_feedback f on p.product_id = f.product_id left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id where p.is_active = 1';
+        let sql_query = 'Select p.product_id,p.product_name as name,p.brand, round(AVG(f.rating), 1) as rating, count(distinct f.feedback_id) as reviewCount, p.description,p.image_url,v.price,v.sku,i.quantity_on_hand as stock,GROUP_CONCAT(DISTINCT c.category_name) as categories from product p left join product_variant v on p.product_id = v.product_id and  v.is_default = True and v.is_active = True left join inventory i on v.variant_id = i.variant_id left join product_feedback f on p.product_id = f.product_id left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id where p.is_active = 1';
         const params = [];
 
         if(category){
@@ -38,11 +45,11 @@ const getAllProducts = async(req, res) => {
 const getAllProductswithVariants = async(req,res) =>{
     try {
         const [products] = await pool.execute(
-            'Select p.product_id,p.product_name as name, p.brand, v.price, p.badge, round(AVG(f.rating), 1) as rating, count(Distinct f.feedback_id) as reviewCount,p.description, p.image_url, GROUP_CONCAT(DISTINCT c.category_name) as categories from product p left join product_variant v on p.product_id = v.product_id and v.is_default = True left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id left join product_feedback f on p.product_id = f.product_id where p.is_active = 1 GROUP BY p.product_id, p.product_name, p.brand, p.badge, v.price, p.description, p.image_url'
+            'Select p.product_id,p.product_name as name, p.brand, v.price, p.badge, round(AVG(f.rating), 1) as rating, count(Distinct f.feedback_id) as reviewCount,p.description, p.image_url, GROUP_CONCAT(DISTINCT c.category_name) as categories from product p left join product_variant v on p.product_id = v.product_id and v.is_default = True and v.is_active = True left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id left join product_feedback f on p.product_id = f.product_id where p.is_active = 1 GROUP BY p.product_id, p.product_name, p.brand, p.badge, v.price, p.description, p.image_url'
         );
     
         const [temp_variants] = await pool.execute(
-            "Select v.product_id, v.variant_id, v.variant_name, v.sku, v.price, i.quantity_on_hand as stock from product_variant v left join inventory i on v.variant_id = i.variant_id"
+            "Select v.product_id, v.variant_id, v.variant_name, v.sku, v.price, i.quantity_on_hand as stock from product_variant v left join inventory i on v.variant_id = i.variant_id where v.is_active = True"
         );
 
         const final_products = products.map(p =>{
@@ -80,7 +87,7 @@ const getProductByID = async(req, res) =>{
             return res.status(404).json({error : "Product not found"});
         }    
 
-        const [temp_variants] = await pool.execute("Select v.variant_id,v.variant_name,v.price,v.sku,i.quantity_on_hand as stock from product_variant v left join inventory i on v.variant_id = i.variant_id where v.product_id = ?",
+        const [temp_variants] = await pool.execute("Select v.variant_id,v.variant_name,v.price,v.sku,i.quantity_on_hand as stock from product_variant v left join inventory i on v.variant_id = i.variant_id where v.product_id = ? and v.is_active = True",
                                               [req.params.id]
                                              );
 
@@ -135,14 +142,7 @@ const createProduct = async(req, res) => {
         await Connection.beginTransaction(); //Using transaction for keep ACID property
         
         //Generating product id
-        let product_id = ''
-    
-        const [rows] = await Connection.execute(
-            "Select max(cast(substring(product_id,4) as unsigned)) as last_num from product"
-        );
-        
-        const lastnum = rows[0].last_num || 0;
-        product_id = `PRD${String(lastnum + 1).padStart(3,"0")}`; 
+        const product_id = await nextID(Connection, "product");
 
         await Connection.execute(
             "Insert into product (product_id, product_name, brand, badge, image_url, description, created_at) values (?,?,?,?,?,?,?)",
@@ -158,76 +158,14 @@ const createProduct = async(req, res) => {
         );
         
         //Inserting category
-        const uniquesCategories = [...new Set(categories)];
-        if(categories){
-            for(const cat of uniquesCategories){
-                const [catResult] =await Connection.execute(
-                    "Insert into product_category (product_id, category_id) select ?, category_id from category where category_name = ?",
-                    [
-                        product_id,
-                        cat
-                    ]
-                )
+        await insertCategories(Connection, product_id, categories);
 
-                if(catResult.affectedRows === 0){
-                    throw new Error("Invalid Category");
-                }
+        //Inserting variants and attributes
+        if(vairants){
+            for(const[index,v] of variants.entries()){
+                await insertVariant(Connection, product_id, v, index === 0);
             }
-        }
-
-
-        //Inserting variants
-        if(variants.length !== 0){
-            let next_num = 1;
-            const [var_row] = await Connection.execute(
-                "Select max(cast(substring(variant_id,4) as unsigned)) as last_var from product_variant"
-            )
-
-            for(const [index, v] of variants.entries()){
-
-                const last_var = var_row[0].last_var || 0;
-                const variant_id = `VAR${String(last_var + next_num).padStart(3,"0")}`;
-                next_num++;
-
-                const price = parseFloat(v.price);
-                const stock = parseInt(v.stock,10) || 0;
-
-                if(isNaN(price) || price < 0){
-                    throw new Error(`Invalid price for variant ${v.variant_name}`);
-                }
-
-                if(isNaN(stock) || stock < 0){
-                    throw new Error(`Invalid stock for variant ${v.variant_name}`);
-                }
-
-                if(!v.sku || !v.variant_name){
-                    throw new Error("Each variant needs a name and SKU");
-                }
-
-                await Connection.execute(
-                    "Insert into product_variant (product_id, variant_id, sku, variant_name, price, is_default, created_at) values (?,?,?,?,?,?,?)",
-                    [
-                        product_id,
-                        variant_id,
-                        v.sku,
-                        v.variant_name,
-                        price,
-                        index === 0,
-                        new Date()
-                    ]
-                )
-
-                const inventory_id = variant_id.replace("VAR","INV");
-                await Connection.execute(
-                    "Insert into inventory (inventory_id,variant_id,quantity_on_hand) values (?,?,?)",
-                    [
-                        inventory_id,
-                        variant_id,
-                        stock
-                    ]
-                )
-            }
-        }
+        }        
         
         await Connection.commit(); //Committing the transaction if all the queries are successful
 
@@ -246,7 +184,7 @@ const updateProduct = async(req, res) =>{
         up_product_name,
         up_product_brand,
         up_product_badge,
-        up_product_category,
+        up_product_categories,
         up_product_image,
         up_product_description,
         up_variants
@@ -275,25 +213,19 @@ const updateProduct = async(req, res) =>{
             product[0].badge = up_product_badge
         }
 
-        if(up_product_category !== undefined){
+        if(up_product_categories !== undefined){
+            if(!Array.isArray(up_product_categories) || up_product_categories.length === 0){
+                throw new Error("At least one category is required");
+            }
+
             await Connection.execute(
                 "Delete from product_category where product_id = ?",
                 [req.params.id]
             )
 
-            const [catResult] = await Connection.execute(
-                "Insert into product_category (product_id, category_id) select ?, category_id from category where category_name = ?",
-                [
-                    req.params.id, 
-                    up_product_category
-                ]
-            );
-
-            if(catResult.affectedRows === 0){
-                throw new Error("Invalid Category");
-            }
+            await insertCategories(Connection, req.params.id, up_product_categories);
         }
-
+        
         if(up_product_image !== undefined){
             product[0].image_url = up_product_image
         }
@@ -316,43 +248,30 @@ const updateProduct = async(req, res) =>{
 
         if(up_variants && Array.isArray(up_variants)){
             for(const v of up_variants){
-                const price = parseFloat(v.price);
-                const stock = parseInt(v.stock,10) || 0;
-
-                if(isNaN(price) || price < 0){
-                    throw new Error(`Invalid price for variant ${v.variant_name}`);
+                if(v.variant_id && v.is_active === false){
+                    await Connection.execute(
+                        "Update product_variant set is_active = false where product_id = ? and variant_id = ?",
+                        [
+                            req.params.id,
+                            v.variant_id
+                        ]
+                    )
+                    continue;
                 }
 
-                if(isNaN(stock) || stock < 0){
-                    throw new Error(`Invalid stock for variant ${v.variant_name}`);
+                if(!v.variant_id){  //new vairant
+                    await insertVariant(Connection, req.params.id, v, false);
+                    continue;
                 }
 
-                if(!v.variant_id || !v.sku || !v.variant_name){
-                    throw new Error("Each variant needs a variant_id, name and SKU");
-                }
-
-                const [varResults] =await Connection.execute(
-                    "Update product_variant set variant_name = ?, price = ?, sku = ? where product_id = ? and variant_id = ?",
-                    [ 
-                        v.variant_name,
-                        price,
-                        v.sku,
-                        req.params.id,
-                        v.variant_id
-                    ]
-                )
-
-                if(varResults.affectedRows === 0){
-                    throw new Error(`Variant with id ${v.variant_id} not found for this product`);
-                }
-
+                const[price, stock] = validateVariant(v);
                 await Connection.execute(
-                    "Update inventory set quantity_on_hand = ? where variant_id = ?",
+                    "Delete from product_attributes where variant_id = ?",
                     [
-                        stock,
                         v.variant_id
                     ]
-                )
+                );
+                await insertAttributes(Connection, v.variant_id, v.attributes);
             }
         }
 

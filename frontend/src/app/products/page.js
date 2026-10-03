@@ -9,17 +9,26 @@ import { Search, Star, Heart, SlidersHorizontal } from "lucide-react";
 export default function ProductsSearchPage() {
   const { selectedCity } = useShop();
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCat, setSelectedCat] = useState("all");
   const [inStockOnly, setInStockOnly] = useState(false);
   const [sortBy, setSortBy] = useState("featured");
   const [favorites, setFavorites] = useState({});
   const[ products, setproducts ] = useState([]);
   const [categories, setCategories] = useState([]);
+
+  useEffect(() =>{
+    const timer = setTimeout(() =>{
+      setDebouncedSearch(searchQuery);
+    }, 300) // Delay 300ms to send an api to search
+
+    return () => clearTimeout(timer);
+  },[searchQuery]);
   
   useEffect(()=>{
       const params = new URLSearchParams();
       if(selectedCat !== "all") params.append("category", selectedCat);
-      if(searchQuery.trim()) params.append("search",searchQuery.trim());
+      if(debouncedSearch.trim()) params.append("search",debouncedSearch.trim());
 
       fetch(`${process.env.NEXT_PUBLIC_URL}/api/products?${params.toString()}`)
       .then(response => {
@@ -33,7 +42,7 @@ export default function ProductsSearchPage() {
         console.error("Error fetching products:",err);
         setproducts([]);
       })
-  },[selectedCat, searchQuery]);
+  },[selectedCat, debouncedSearch]);
 
   useEffect(() =>{
     fetch(`${process.env.NEXT_PUBLIC_URL}/api/categories`)
