@@ -14,8 +14,9 @@ export default function ProductsSearchPage() {
   const [inStockOnly, setInStockOnly] = useState(false);
   const [sortBy, setSortBy] = useState("featured");
   const [favorites, setFavorites] = useState({});
-  const[ products, setproducts ] = useState([]);
+  const [products, setproducts ] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() =>{
     const timer = setTimeout(() =>{
@@ -37,6 +38,7 @@ export default function ProductsSearchPage() {
         })
       .then(data => {
         setproducts(data);
+        sertLoading(false);
       })
       .catch(err =>{
         console.error("Error fetching products:",err);
@@ -81,6 +83,14 @@ export default function ProductsSearchPage() {
       return 0;
     });
   }, [products, inStockOnly, sortBy]);
+  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#222222]"></div>
+      </div>
+    );
+  }
   
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-8">
