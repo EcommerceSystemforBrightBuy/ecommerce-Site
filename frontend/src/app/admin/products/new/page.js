@@ -390,7 +390,7 @@ export default function AddProductPage() {
                     <button
                       type="button"
                       onClick={() => addAttribute(v.temp_id)}
-                      className="bg-[#FF385C] hover:bg-[#E00B41] text-white text-xs font-bold px-3.5 py-2 rounded-full inline-flex items-center gap-1 whitespace-nowrap shrink-0 width:full"
+                      className="bg-[#222222] hover:bg-black text-white text-xs font-bold px-3.5 py-2 rounded-full inline-flex items-center gap-1 whitespace-nowrap shrink-0 width:full"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add Attribute</span>

@@ -74,13 +74,40 @@ export default function EditProductPage({ params }) {
     return <p>Product not Found...!</p>
   }
 
-  const updateVariant = (variantId, field, vlaue) =>{
+  const addVariant = () => {
+    setVariants((prev) => [
+      ...prev,
+      {
+        temp_id: new Date().getTime(),
+        variant_name: "",
+        sku: "",
+        price: "",
+        stock: "",
+        is_new : false,
+        is_active : true,
+        attributes : []
+      },
+    ]);
+  };
+
+  const updateVariant = (variantId, temp_id, field, value) =>{
     setVariants((prev) =>
       prev.map((v) => (
-        v.variant_id === variantId ?
+        (v.variant_id === variantId  || v.variant_id === temp_id)?
         {...v, [field]: value}
         : v
       ))  
+    );
+  };
+
+  const removeVariant = (variantId) => {
+    if(variants.length <= 1) return;
+    setVariants((prev) => 
+      prev.map(v => 
+        v.variant_id === variantId ?
+          v.is_active = false
+          : v
+      )
     );
   };
   
@@ -303,10 +330,40 @@ export default function EditProductPage({ params }) {
 
         {/* Variants */}
         <div className="border border-[#DDDDDD] rounded-3xl p-6 bg-white space-y-4 text-xs shadow-xs">
-          <div className="font-bold text-sm text-[#222222]">Variants &amp; WH Stock Controls</div>
-
+          <div className="font-bold text-sm text-[#222222]">Variants &amp; WH Stock Controls
+            <p className="text-[11px] text-[#717171]">
+              Each variant determines price, SKU code, and stock count at the Central Texas Warehouse.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={addVariantField}
+            className="bg-[#222222] hover:bg-black text-white text-xs font-bold px-3.5 py-2 rounded-full inline-flex items-center gap-1"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Variant</span>
+          </button>
+          </div>
+   
           <div className="space-y-3">
             {variants.map((v) => (
+              <div
+                key={v.temp_id}
+                className="p-4 rounded-2xl border border-[#DDDDDD] bg-[#F7F7F7] space-y-3 relative"
+              >
+                <div className="flex items-center justify-between font-bold text-[#222222]">
+                  <span>Variant #{idx + 1}</span>
+                  {variants.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeVariantField(v.temp_id)}
+                      className="text-[#717171] hover:text-[#FF385C] p-1"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
               <div key={v.variant_id} className="p-4 rounded-2xl border border-[#DDDDDD] bg-[#F7F7F7] grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-[#717171] text-[11px] mb-1 font-bold">Variant</label>
@@ -362,7 +419,7 @@ export default function EditProductPage({ params }) {
                     <button
                       type="button"
                       onClick={() => addAttribute(v.variant_id)}
-                      className="bg-[#FF385C] hover:bg-[#E00B41] text-white text-xs font-bold px-3.5 py-2 rounded-full inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                      className="bg-[#222222] hover:bg-black text-white text-xs font-bold px-3.5 py-2 rounded-full inline-flex items-center gap-1 whitespace-nowrap shrink-0"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add Attribute</span>
