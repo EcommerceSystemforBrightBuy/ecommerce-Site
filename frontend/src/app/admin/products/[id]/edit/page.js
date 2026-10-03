@@ -343,10 +343,9 @@ export default function EditProductPage({ params }) {
             <Plus className="w-3.5 h-3.5" />
             <span>Add Variant</span>
           </button>
-          </div>
-   
+
           <div className="space-y-3">
-            {variants.map((v) => (
+            {variants.map((v, idx) => (
               <div
                 key={v.temp_id}
                 className="p-4 rounded-2xl border border-[#DDDDDD] bg-[#F7F7F7] space-y-3 relative"
@@ -456,6 +455,7 @@ export default function EditProductPage({ params }) {
                     </div>
                   ))}
                 </div>
+              </div>
               </div>
             ))}
           </div>
