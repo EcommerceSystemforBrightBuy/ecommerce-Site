@@ -51,9 +51,14 @@ export default function ProductDetailPage({ params }) {
        })
   },[unwrappedParams.id]); //it will make the page refresh once the id changed
 
- if(loading){
-    return <p>Loading products....</p>
- }
+ if (loading) {
+    return (
+      <div role="status" className="flex items-center justify-center min-h-screen">
+        <div className="h-12 w-12 animate-spin rounded-full border-2 border-[#222222]/20 border-t-[#222222]" />
+        <span className="sr-only">Loading…</span>
+      </div>
+    );
+  }
 
  if(!product){
     return <p>Product not Found...!</p>
@@ -152,60 +157,82 @@ export default function ProductDetailPage({ params }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {product.variants?.map((variant, idx) => {
                 const isSelected = idx === variantIndex;
-                const vStock = variant?.stock > 0;
+                const inStock = variant?.stock > 0;
+
                 return (
                   <button
                     key={variant.variant_id}
                     type="button"
+                    aria-pressed={isSelected}
                     onClick={() => setVariantIndex(idx)}
-                    className={`p-4 rounded-2xl text-left border transition-all flex items-center justify-between ${
+                    className={`p-4 rounded-2xl text-left border transition-all ${
                       isSelected
                         ? "border-[#222222] bg-[#F7F7F7] ring-1 ring-[#222222]"
                         : "border-[#DDDDDD] bg-white hover:border-[#222222]"
                     }`}
                   >
-                    <div className="space-y-1">
-                      <div className="font-bold text-xs text-[#222222]">{variant.variant_name}</div>
-                      <div className="text-[11px] font-mono text-[#717171]">
-                        ${variant?.price?.toFixed(2) ?? '-'} • {variant?.sku ?? '-'}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1 min-w-0">
+                        <div className="font-bold text-xs text-[#222222]">
+                          {variant.variant_name}
+                        </div>
+                        <div className="text-[11px] font-mono text-[#717171]">
+                          ${variant?.price?.toFixed(2) ?? "-"} • {variant?.sku ?? "-"}
+                        </div>
                       </div>
+
+                      <span
+                        className={`shrink-0 whitespace-nowrap text-[10px] font-bold px-2 py-1 rounded-full ${
+                          inStock
+                            ? "bg-emerald-100 text-emerald-900"
+                            : "bg-amber-100 text-amber-900"
+                        }`}
+                      >
+                        {inStock ? `${variant.stock} in stock` : "Backorder"}
+                      </span>
                     </div>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-1 rounded-full ${
-                        vStock ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"
-                      }`}
-                    >
-                      {vStock ? `${variant?.stock} in stock` : "Backorder"}
-                    </span>
+
+                    {variant.attributes?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-2 mt-2 border-t border-[#EBEBEB]">
+                        {variant.attributes.map((a, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-0.5 rounded-full bg-white border border-[#DDDDDD] text-[10px] font-semibold capitalize"
+                          >
+                            {a.attribute_name}: {a.attribute_value}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </button>
                 );
               })}
             </div>
-          </div>
 
-          {/* Texas Central Warehouse & Logistics Guarantee */}
-          <div className="space-y-4 text-xs">
-            <h3 className="font-bold text-[#222222] text-sm">Texas Logistics &amp; Fulfillment</h3>
+            {/* Texas Central Warehouse & Logistics Guarantee */}
+            <div className="space-y-4 text-xs">
+              <h3 className="font-bold text-[#222222] text-sm">Texas Logistics &amp; Fulfillment</h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl border border-[#DDDDDD] bg-[#F7F7F7] space-y-1">
-                <div className="flex items-center gap-2 font-bold text-[#222222]">
-                  <Truck className="w-4 h-4 text-[#FF385C]" />
-                  <span>Statewide Transit</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl border border-[#DDDDDD] bg-[#F7F7F7] space-y-1">
+                  <div className="flex items-center gap-2 font-bold text-[#222222]">
+                    <Truck className="w-4 h-4 text-[#FF385C]" />
+                    <span>Statewide Transit</span>
+                  </div>
+                  <p className="text-[#717171] text-[11px]">
+                    5 business days for main metro cities, 7 days for regional Texas.
+                  </p>
                 </div>
-                <p className="text-[#717171] text-[11px]">
-                  5 business days for main metro cities, 7 days for regional Texas.
-                </p>
-              </div>
 
-              <div className="p-4 rounded-2xl border border-[#DDDDDD] bg-[#F7F7F7] space-y-1">
-                <div className="flex items-center gap-2 font-bold text-[#222222]">
-                  <Store className="w-4 h-4 text-[#FF385C]" />
-                  <span>Physical Hub Pickup</span>
+                <div className="p-4 rounded-2xl border border-[#DDDDDD] bg-[#F7F7F7] space-y-1">
+                  <div className="flex items-center gap-2 font-bold text-[#222222]">
+                    <Store className="w-4 h-4 text-[#FF385C]" />
+                    <span>Physical Hub Pickup</span>
+                  </div>
+                  <p className="text-[#717171] text-[11px]">
+                    Ready in 24 hours at Austin, Dallas, Houston, San Antonio, and Fort Worth.
+                  </p>
                 </div>
-                <p className="text-[#717171] text-[11px]">
-                  Ready in 24 hours at Austin, Dallas, Houston, San Antonio, and Fort Worth.
-                </p>
               </div>
             </div>
           </div>

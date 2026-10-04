@@ -150,8 +150,13 @@ export default function AddProductPage() {
     }
   };
 
-  if(loading){
-    return <p>Loading Categories...!</p>
+  if (loading) {
+    return (
+      <div role="status" className="flex items-center justify-center min-h-screen">
+        <div className="h-12 w-12 animate-spin rounded-full border-2 border-[#222222]/20 border-t-[#222222]" />
+        <span className="sr-only">Loading…</span>
+      </div>
+    );
   }
 
   return (
