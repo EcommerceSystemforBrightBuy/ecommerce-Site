@@ -249,13 +249,18 @@ const updateProduct = async(req, res) =>{
         if(up_variants && Array.isArray(up_variants)){
             for(const v of up_variants){
                 if(v.variant_id && v.is_active === false){
-                    await Connection.execute(
-                        "Update product_variant set is_active = false where product_id = ? and variant_id = ?",
+                    const [result] = await Connection.execute(
+                        "Update product_variant set is_active = false, is_default = false where product_id = ? and variant_id = ?",
                         [
                             req.params.id,
                             v.variant_id
                         ]
                     )
+
+                    if(result.affectedRows === 0){
+                        throw new Error(`Variant with id ${v.variant_id} not found for product ${req.params.id}`);
+                    }
+
                     continue;
                 }
 
@@ -297,6 +302,33 @@ const updateProduct = async(req, res) =>{
                 );
                 await insertAttributes(Connection, v.variant_id, v.attributes);
             }
+        }
+
+        const [active_variants] = await Connection.execute(
+            "Select count(variant_id) as active_variant_count from product_variant where product_id = ? and is_active = true",
+            [
+                req.params.id
+            ]
+        );
+
+        if(active_variants[0].active_variant_count === 0){
+            throw new Error("At least one active variant is required for the product");
+        }
+
+        const [default_variant] = await Connection.execute(
+            "Select variant_id from product_variant where product_id = ? and is_default = true and is_active = true",
+            [
+                req.params.id
+            ]
+        );
+
+        if(default_variant.length === 0){
+            await Connection.execute(
+                "Update product_variant set is_default = true where product_id = ? and is_active = true order by variant_id limit 1",
+                [
+                    req.params.id
+                ]
+            );
         }
 
         await Connection.commit();

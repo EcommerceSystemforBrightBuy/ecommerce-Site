@@ -25,7 +25,7 @@ const insertAttributes = async(Connection, variant_id, attributes) => {
     const value = a.attribute_value?.trim();
     if (!name || !value) continue;
 
-    const attribute_id = await nextId(conn, "product_attribute", "attribute_id", "ATT", 4);
+    const attribute_id = await nextId(Connection, "product_attribute", "attribute_id", "ATT", 4);
     
     await Connection.execute(
       "Insert into product_attribute (attribute_id, variant_id, attribute_name, attribute_value) VALUES (?,?,?,?)",
