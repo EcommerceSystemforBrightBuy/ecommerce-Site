@@ -35,6 +35,8 @@ DROP TABLE IF EXISTS `order`;
 
 DROP TABLE IF EXISTS customer_address;
 
+DROP TABLE IF EXISTS staff_profile;
+
 DROP TABLE IF EXISTS customer;
 
 DROP TABLE IF EXISTS city;
@@ -59,6 +61,16 @@ CREATE TABLE `user` (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT pk_user PRIMARY KEY (user_id),
     CONSTRAINT uq_user_email UNIQUE (email)
+) ENGINE = InnoDB;
+
+CREATE TABLE staff_profile (
+    user_id VARCHAR(50) NOT NULL,
+    job_title VARCHAR(100) NOT NULL,
+    hub VARCHAR(150) NOT NULL DEFAULT 'BrightBuy Central Texas Hub (Austin)',
+    status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    avatar_url VARCHAR(500) DEFAULT NULL,
+    CONSTRAINT pk_staff_profile PRIMARY KEY (user_id),
+    CONSTRAINT fk_staff_profile_user FOREIGN KEY (user_id) REFERENCES `user` (user_id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB;
 
 -- 2. Customer
@@ -258,6 +270,7 @@ CREATE INDEX idx_orderitem_variant ON order_item (variant_id);
 CREATE TABLE inventory_transaction (
     transaction_id VARCHAR(50) NOT NULL,
     inventory_id VARCHAR(50) NOT NULL,
+    user_id VARCHAR(50) DEFAULT NULL,
     order_id VARCHAR(50) DEFAULT NULL,
     transaction_type ENUM(
         'restock',
@@ -269,6 +282,7 @@ CREATE TABLE inventory_transaction (
     transaction_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_inventory_transaction PRIMARY KEY (transaction_id),
     CONSTRAINT fk_invtrans_inventory FOREIGN KEY (inventory_id) REFERENCES inventory (inventory_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_invtrans_user FOREIGN KEY (user_id) REFERENCES `user` (user_id) ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_invtrans_order FOREIGN KEY (order_id) REFERENCES `order` (order_id) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE = InnoDB;
 
