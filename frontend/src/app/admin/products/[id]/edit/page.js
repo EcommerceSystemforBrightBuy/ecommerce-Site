@@ -465,7 +465,7 @@ export default function EditProductPage({ params }) {
                       </button>
                     </div>
                   ))}
-                </div>
+              </div>
               </div>
               </div>
             ))}
