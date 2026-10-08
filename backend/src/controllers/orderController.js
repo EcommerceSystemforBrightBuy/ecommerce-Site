@@ -113,17 +113,73 @@ exports.getOrderById = async (req, res) => {
 
 // 4. PUT /api/orders/:id/status — Admin Dispatch Update
 exports.updateOrderStatus = async (req, res) => {
+    const connection = await pool.getConnection();
     try {
         const { id } = req.params;
         const { status } = req.body;
 
-        await pool.query(
+        await connection.beginTransaction();
+
+        // 1. Get current delivery status to check if already dispatched
+        const [delRows] = await connection.query(
+            `SELECT delivery_status FROM delivery WHERE order_id = ?`,
+            [id]
+        );
+
+        const currentStatus = delRows.length > 0 ? delRows[0].delivery_status : null;
+
+        // 2. Update delivery status
+        await connection.query(
             `UPDATE delivery SET delivery_status = ? WHERE order_id = ?`,
             [status, id]
         );
 
-        res.json({ success: true, message: `Order ${id} delivery status updated to ${status}` });
+        // Also sync order_status in order table
+        const lowerStatus = (status || '').toLowerCase();
+        if (lowerStatus === 'dispatched' || lowerStatus === 'shipped') {
+            await connection.query(
+                `UPDATE \`order\` SET order_status = 'shipped' WHERE order_id = ?`,
+                [id]
+            );
+        } else if (lowerStatus === 'delivered') {
+            await connection.query(
+                `UPDATE \`order\` SET order_status = 'delivered' WHERE order_id = ?`,
+                [id]
+            );
+        }
+
+        // 3. Deduct inventory stock when status changes to dispatched/shipped/delivered for the first time
+        const isDispatched = ['dispatched', 'shipped', 'delivered'].includes(lowerStatus);
+        const wasDispatched = ['dispatched', 'shipped', 'delivered'].includes((currentStatus || '').toLowerCase());
+
+        if (isDispatched && !wasDispatched) {
+            // Fetch order items for this order
+            const [items] = await connection.query(
+                `SELECT variant_id, quantity FROM order_item WHERE order_id = ?`,
+                [id]
+            );
+
+            // Deduct stock in inventory table for each item
+            for (const item of items) {
+                await connection.query(
+                    `UPDATE inventory SET quantity_on_hand = quantity_on_hand - ? WHERE variant_id = ?`,
+                    [item.quantity, item.variant_id]
+                );
+            }
+        }
+
+        await connection.commit();
+
+        res.json({
+            success: true,
+            message: `Order ${id} status updated to ${status} and inventory updated upon dispatch.`
+        });
     } catch (error) {
+        await connection.rollback();
+        console.error('Update Order Status Error:', error);
         res.status(500).json({ success: false, error: error.message });
+    } finally {
+        connection.release();
     }
 };
+

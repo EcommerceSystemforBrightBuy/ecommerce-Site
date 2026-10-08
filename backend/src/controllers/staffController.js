@@ -4,18 +4,31 @@ const db = require('../config/db');
 
 const getAllStaff = async (req, res) => {
   try {
+    // Ensure staff_profile table exists to prevent table missing crashes
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS staff_profile (
+          user_id VARCHAR(50) NOT NULL,
+          job_title VARCHAR(100) NOT NULL,
+          hub VARCHAR(150) NOT NULL DEFAULT 'BrightBuy Central Texas Hub (Austin)',
+          status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+          avatar_url VARCHAR(500) DEFAULT NULL,
+          CONSTRAINT pk_staff_profile PRIMARY KEY (user_id),
+          CONSTRAINT fk_staff_profile_user FOREIGN KEY (user_id) REFERENCES \`user\` (user_id) ON DELETE CASCADE ON UPDATE CASCADE
+      ) ENGINE = InnoDB;
+    `);
+
     const [rows] = await db.execute(`
       SELECT
         u.user_id AS id,
         CONCAT(u.first_name, ' ', u.last_name) AS name,
-        sp.job_title AS role,
+        COALESCE(sp.job_title, 'Warehouse Staff') AS role,
         u.email,
         u.phone,
-        sp.status,
-        sp.hub,
+        COALESCE(sp.status, 'active') AS status,
+        COALESCE(sp.hub, 'BrightBuy Central Texas Hub (Austin)') AS hub,
         sp.avatar_url AS avatar
       FROM \`user\` u
-      INNER JOIN staff_profile sp ON sp.user_id = u.user_id
+      LEFT JOIN staff_profile sp ON sp.user_id = u.user_id
       WHERE u.role = 'warehouse_staff'
       ORDER BY u.last_name ASC, u.first_name ASC
     `);
@@ -23,7 +36,7 @@ const getAllStaff = async (req, res) => {
     return res.status(200).json(rows);
   } catch (error) {
     console.error('[Staff Controller] Error:', error);
-    return res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({ message: error.message || 'Internal Server Error' });
   }
 };
 
