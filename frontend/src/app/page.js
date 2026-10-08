@@ -31,8 +31,13 @@ export default function HomePage() {
       return products.filter((p) => p.categories.includes(selectedCategory));
     }, [selectedCategory, products]);    
 
-  if(loading){
-    return <p>Products loading...!</p>
+  if (loading) {
+    return (
+      <div role="status" className="flex items-center justify-center min-h-screen">
+        <div className="h-12 w-12 animate-spin rounded-full border-2 border-[#222222]/20 border-t-[#222222]" />
+        <span className="sr-only">Loading…</span>
+      </div>
+    );
   }
   
   const toggleFavorite = (id, e) => {
@@ -86,7 +91,7 @@ export default function HomePage() {
                 {/* Airbnb Image Box */}
                 <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#F7F7F7] border border-[#EBEBEB]">
                   <img
-                    src={product.image}
+                    src={product.image_url}
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
                   />

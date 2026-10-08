@@ -77,7 +77,7 @@ const getProductByID = async(req, res) =>{
     try{
         //Using prepare statement to prevent data from SQL injection kind of issues.
         const [productRows] = await pool.execute(
-            "Select p.product_id, p.product_name as name, p.brand, p.badge, round(AVG(f.rating), 1) as rating, count(f.feedback_id) as reviewCount, p.description, p.image_url from product p left join product_feedback f on p.product_id = f.product_id where p.product_id = ? group by p.product_id, p.brand, p.badge, p.description, p.image_url", 
+            "Select p.product_id, p.product_name as name, p.brand, p.badge, round(AVG(f.rating), 1) as rating, count(f.feedback_id) as reviewCount, p.description, p.image_url from product p left join product_feedback f on p.product_id = f.product_id where p.product_id = ? and p.is_active = True group by p.product_id, p.brand, p.badge, p.description, p.image_url", 
             [
                 req.params.id
             ]
@@ -161,7 +161,7 @@ const createProduct = async(req, res) => {
         await insertCategories(Connection, product_id, categories);
 
         //Inserting variants and attributes
-        if(vairants){
+        if(variants && Array.isArray(variants)){
             for(const[index,v] of variants.entries()){
                 await insertVariant(Connection, product_id, v, index === 0);
             }
@@ -191,9 +191,9 @@ const updateProduct = async(req, res) =>{
     } = req.body;
 
     const Connection = await pool.getConnection();
-    await Connection.beginTransaction();
-
+    
     try{
+        await Connection.beginTransaction();
         const [product] = await Connection.execute("Select * from product where product_id = ?", [req.params.id]); 
 
         if(product.length === 0){
@@ -249,24 +249,53 @@ const updateProduct = async(req, res) =>{
         if(up_variants && Array.isArray(up_variants)){
             for(const v of up_variants){
                 if(v.variant_id && v.is_active === false){
-                    await Connection.execute(
-                        "Update product_variant set is_active = false where product_id = ? and variant_id = ?",
+                    const [result] = await Connection.execute(
+                        "Update product_variant set is_active = false, is_default = false where product_id = ? and variant_id = ?",
                         [
                             req.params.id,
                             v.variant_id
                         ]
                     )
+
+                    if(result.affectedRows === 0){
+                        throw new Error(`Variant with id ${v.variant_id} not found for product ${req.params.id}`);
+                    }
+
                     continue;
                 }
 
-                if(!v.variant_id){  //new vairant
+                if(!v.variant_id){  //new variant
                     await insertVariant(Connection, req.params.id, v, false);
                     continue;
                 }
 
-                const[price, stock] = validateVariant(v);
+                const {price, stock} = validateVariant(v);
+
+                const [row] = await Connection.execute(
+                    "Update product_variant set variant_name = ?, price = ?, sku = ? where product_id = ? and variant_id = ?",
+                    [
+                        v.variant_name.trim() ?? null,
+                        price,
+                        v.sku.trim() ?? null,
+                        req.params.id,
+                        v.variant_id
+                    ]
+                );
+
+                if(row.affectedRows === 0){
+                    throw new Error(`Variant with id ${v.variant_id} not found for product ${req.params.id}`);
+                }
+
                 await Connection.execute(
-                    "Delete from product_attributes where variant_id = ?",
+                    "Update inventory set quantity_on_hand = ? where variant_id = ?",
+                    [
+                        stock,
+                        v.variant_id
+                    ]
+                );
+
+                await Connection.execute(
+                    "Delete from product_attribute where variant_id = ?",
                     [
                         v.variant_id
                     ]
@@ -275,16 +304,45 @@ const updateProduct = async(req, res) =>{
             }
         }
 
+        const [active_variants] = await Connection.execute(
+            "Select count(variant_id) as active_variant_count from product_variant where product_id = ? and is_active = true",
+            [
+                req.params.id
+            ]
+        );
+
+        if(active_variants[0].active_variant_count === 0){
+            throw new Error("At least one active variant is required for the product");
+        }
+
+        const [default_variant] = await Connection.execute(
+            "Select variant_id from product_variant where product_id = ? and is_default = true and is_active = true",
+            [
+                req.params.id
+            ]
+        );
+
+        if(default_variant.length === 0){
+            await Connection.execute(
+                "Update product_variant set is_default = true where product_id = ? and is_active = true order by variant_id limit 1",
+                [
+                    req.params.id
+                ]
+            );
+        }
+
         await Connection.commit();
         res.status(200).json({message :"Product updated successfully"});
     }catch(err){
         console.error(err);
         await Connection.rollback();
-        res.status(500).json({error : err.message || "Failed to update product"});
 
         if(err.code === "ER_DUP_ENTRY"){
             res.status(400).json({error : "SKU already exists"});
+            return;
         }
+
+        res.status(500).json({error : err.message || "Failed to update product"});
 
     } finally {
         await Connection.release();

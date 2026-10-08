@@ -40,6 +40,8 @@ export default function EditProductPage({ params }) {
         (data.variants ?? []).map((v) => ({
           ...v,
           stock: v.stock ?? 0,
+          is_active: v.is_active ?? true,
+          is_new: v.is_new ?? false,
           attributes: (v.attributes ?? []).map((a,i) => ({
             attr_id: `${v.variant_id}-${i}`,
             attribute_name: a.attribute_name ?? "",
@@ -66,13 +68,20 @@ export default function EditProductPage({ params }) {
     .catch(err => console.error(err));
   }, []);
   
-  if(loading){
-    return <p>Product loading...!</p>
+  if (loading) {
+    return (
+      <div role="status" className="flex items-center justify-center min-h-screen">
+        <div className="h-12 w-12 animate-spin rounded-full border-2 border-[#222222]/20 border-t-[#222222]" />
+        <span className="sr-only">Loading…</span>
+      </div>
+    );
   }
 
   if(!product){
     return <p>Product not Found...!</p>
   }
+
+  const getVariantId = (v) => v.variant_id ?? v.temp_id;
 
   const addVariant = () => {
     setVariants((prev) => [
@@ -83,17 +92,17 @@ export default function EditProductPage({ params }) {
         sku: "",
         price: "",
         stock: "",
-        is_new : false,
+        is_new : true,
         is_active : true,
         attributes : []
       },
     ]);
   };
 
-  const updateVariant = (variantId, temp_id, field, value) =>{
+  const updateVariant = (temp_id, field, value) =>{
     setVariants((prev) =>
       prev.map((v) => (
-        (v.variant_id === variantId  || v.variant_id === temp_id)?
+        (getVariantId(v) === temp_id) ?
         {...v, [field]: value}
         : v
       ))  
@@ -104,8 +113,8 @@ export default function EditProductPage({ params }) {
     if(variants.length <= 1) return;
     setVariants((prev) => 
       prev.map(v => 
-        v.variant_id === variantId ?
-          v.is_active = false
+        getVariantId(v) === variantId ?
+          {...v, is_active: false}
           : v
       )
     );
@@ -114,7 +123,7 @@ export default function EditProductPage({ params }) {
   const addAttribute = (variantId) => {
     setVariants((prev) =>
     prev.map((v) => 
-      v.variant_id === variantId ? 
+      getVariantId(v) === variantId ? 
         {...v, attributes : [...v.attributes, {
             attr_id : Date.now(),
             attribute_name : "",
@@ -128,7 +137,7 @@ export default function EditProductPage({ params }) {
   const updateAttribute = (variantId, attrID, field, value) => {
       setVariants((prev) =>
         prev.map((v) => 
-          v.variant_id === variantId ?
+          getVariantId(v) === variantId ?
           { ...v, attributes : v.attributes.map((attri) =>
               (attri.attr_id === attrID ?
                   {...attri, [field]: value }
@@ -143,7 +152,7 @@ export default function EditProductPage({ params }) {
   const removeAttribute = (variantId,attrID) => {
     setVariants((prev) =>
       prev.map((v) =>
-        v.variant_id === variantId
+        getVariantId(v) === variantId
         ?{...v, attributes : v.attributes.filter(attri => attri.attr_id !== attrID )}
         : v
       )
@@ -197,6 +206,8 @@ export default function EditProductPage({ params }) {
         setSubmitting(false);
     }
   };
+
+  const visibleVariants = variants.filter(v => v.is_active !== false);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -337,18 +348,17 @@ export default function EditProductPage({ params }) {
           </div>
           <button
             type="button"
-            onClick={addVariantField}
+            onClick={addVariant}
             className="bg-[#222222] hover:bg-black text-white text-xs font-bold px-3.5 py-2 rounded-full inline-flex items-center gap-1"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Variant</span>
           </button>
-          </div>
-   
+
           <div className="space-y-3">
-            {variants.map((v) => (
+            {visibleVariants.map((v, idx) => (
               <div
-                key={v.temp_id}
+                key={getVariantId(v)}
                 className="p-4 rounded-2xl border border-[#DDDDDD] bg-[#F7F7F7] space-y-3 relative"
               >
                 <div className="flex items-center justify-between font-bold text-[#222222]">
@@ -356,7 +366,7 @@ export default function EditProductPage({ params }) {
                   {variants.length > 1 && (
                     <button
                       type="button"
-                      onClick={() => removeVariantField(v.temp_id)}
+                      onClick={() => removeVariant(getVariantId(v))}
                       className="text-[#717171] hover:text-[#FF385C] p-1"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -364,14 +374,14 @@ export default function EditProductPage({ params }) {
                   )}
                 </div>
 
-              <div key={v.variant_id} className="p-4 rounded-2xl border border-[#DDDDDD] bg-[#F7F7F7] grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div className="p-4 rounded-2xl border border-[#DDDDDD] bg-[#F7F7F7] grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-[#717171] text-[11px] mb-1 font-bold">Variant</label>
                   <input
                     type="text"
                     value={v.variant_name}
                     required
-                    onChange={(e) => updateVariant(v.variant_id, "variant_name", e.target.value)}
+                    onChange={(e) => updateVariant(getVariantId(v), "variant_name", e.target.value)}
                     className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs text-[#222222]"
                   />
                 </div>
@@ -382,7 +392,7 @@ export default function EditProductPage({ params }) {
                     type="text"
                     value={v.sku}
                     required
-                    onChange={(e) => updateVariant(v.variant_id, "sku", e.target.value)}
+                    onChange={(e) => updateVariant(getVariantId(v), "sku", e.target.value)}
                     className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                   />
                 </div>
@@ -395,7 +405,7 @@ export default function EditProductPage({ params }) {
                     value={v.price}
                     min="0"
                     required
-                    onChange={(e) => updateVariant(v.variant_id, "price", e.target.value)}
+                    onChange={(e) => updateVariant(getVariantId(v), "price", e.target.value)}
                     className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                   />
                 </div>
@@ -407,7 +417,7 @@ export default function EditProductPage({ params }) {
                     value={v.stock}
                     min="0"
                     required
-                    onChange={(e) => updateVariant(v.variant_id, "stock", e.target.value)}
+                    onChange={(e) => updateVariant(getVariantId(v), "stock", e.target.value)}
                     className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
                   />
                 </div>
@@ -418,7 +428,7 @@ export default function EditProductPage({ params }) {
                     </span>
                     <button
                       type="button"
-                      onClick={() => addAttribute(v.variant_id)}
+                      onClick={() => addAttribute(getVariantId(v))}
                       className="bg-[#222222] hover:bg-black text-white text-xs font-bold px-3.5 py-2 rounded-full inline-flex items-center gap-1 whitespace-nowrap shrink-0"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -436,19 +446,19 @@ export default function EditProductPage({ params }) {
                         type="text"
                         placeholder="Name (e.g. Color)"
                         value={a.attribute_name}
-                        onChange={(e) => updateAttribute(v.variant_id, a.attr_id, "attribute_name", e.target.value)}
+                        onChange={(e) => updateAttribute(getVariantId(v), a.attr_id, "attribute_name", e.target.value)}
                         className="w-full min-w-0 bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs text-[#222222]"
                       />
                       <input
                         type="text"
                         placeholder="Value (e.g. Black)"
                         value={a.attribute_value}
-                        onChange={(e) => updateAttribute(v.variant_id, a.attr_id, "attribute_value", e.target.value)}
+                        onChange={(e) => updateAttribute(getVariantId(v), a.attr_id, "attribute_value", e.target.value)}
                         className="w-full min-w-0 bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs text-[#222222]"
                       />
                       <button
                         type="button"
-                        onClick={() => removeAttribute(v.variant_id, a.attr_id)}
+                        onClick={() => removeAttribute(getVariantId(v), a.attr_id)}
                         className="p-2 text-[#717171] hover:text-[#FF385C] justify-self-end"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -456,6 +466,7 @@ export default function EditProductPage({ params }) {
                     </div>
                   ))}
                 </div>
+              </div>
               </div>
             ))}
           </div>
