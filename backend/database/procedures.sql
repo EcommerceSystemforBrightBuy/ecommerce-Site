@@ -1,8 +1,10 @@
 USE brightbuy;
 
-DELIMITER / /
+DELIMITER /
+/
 
-DROP PROCEDURE IF EXISTS sp_checkout_order / /
+DROP PROCEDURE IF EXISTS sp_checkout_order /
+/
 
 CREATE PROCEDURE sp_checkout_order(
     IN p_order_id VARCHAR(50),
@@ -31,20 +33,16 @@ BEGIN
 
     START TRANSACTION;
 
-    -- Step 1: Create `order` record
+    -- Create `order` record
     INSERT INTO `order` (order_id, customer_id, total_amount, order_status)
     VALUES (p_order_id, p_customer_id, p_total_amount, 'confirmed');
 
-    -- Step 2: Create `order_item` record
+    -- Create `order_item` record
     INSERT INTO order_item (order_item_id, order_id, variant_id, quantity, unit_price, subtotal)
     VALUES (CONCAT('ITEM-', UUID()), p_order_id, p_variant_id, p_quantity, p_unit_price, (p_quantity * p_unit_price));
 
-    -- Step 3: Update inventory stock level
-    UPDATE inventory 
-    SET quantity_on_hand = quantity_on_hand - p_quantity
-    WHERE variant_id = p_variant_id;
 
-    -- Step 4: Create `delivery` record
+    --  Create `delivery` record
     INSERT INTO delivery (delivery_id, order_id, delivery_mode, delivery_address_id, estimated_delivery_date, delivery_status)
     VALUES (
         CONCAT('DEL-', UUID()), 
@@ -55,7 +53,7 @@ BEGIN
         'pending'
     );
 
-    -- Step 5: Create `payment` record
+    -- Create `payment` record
     INSERT INTO payment (payment_id, order_id, payment_method, payment_status, amount)
     VALUES (
         CONCAT('PAY-', UUID()), 
@@ -66,6 +64,8 @@ BEGIN
     );
 
     COMMIT;
-END //
+END
+/
+/
 
 DELIMITER;
