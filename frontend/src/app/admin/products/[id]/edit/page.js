@@ -110,13 +110,16 @@ export default function EditProductPage({ params }) {
   };
 
   const removeVariant = (variantId) => {
-    if(variants.length <= 1) return;
+    if(variants.length <= 1){
+      alert("At least one variant is required.");
+      return;
+    }
     setVariants((prev) => 
-      prev.map(v => 
-        getVariantId(v) === variantId ?
-          {...v, is_active: false}
-          : v
-      )
+      prev.flatMap(v => {
+        if(getVariantId(v) !== variantId) return [v];
+        if(v.is_new) return [];
+        return [{...v, is_active : false}];
+      })
     );
   };
   
@@ -363,7 +366,7 @@ export default function EditProductPage({ params }) {
               >
                 <div className="flex items-center justify-between font-bold text-[#222222]">
                   <span>Variant #{idx + 1}</span>
-                  {variants.length > 1 && (
+                  {visibleVariants.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeVariant(getVariantId(v))}
