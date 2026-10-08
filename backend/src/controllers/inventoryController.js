@@ -45,7 +45,11 @@ const adjustStock = async (req, res) => {
 
   try {
     const [variantRows] = await db.execute(
-      'SELECT variant_id FROM product_variant WHERE sku = ? LIMIT 1',
+      `SELECT pv.variant_id, i.quantity_on_hand
+       FROM product_variant pv
+       LEFT JOIN inventory i ON i.variant_id = pv.variant_id
+       WHERE pv.sku = ?
+       LIMIT 1`,
       [sku]
     );
 
@@ -54,6 +58,10 @@ const adjustStock = async (req, res) => {
     }
 
     const variantId = variantRows[0].variant_id;
+    const currentStock = variantRows[0].quantity_on_hand;
+    if (currentStock !== null && Number(currentStock) + parsedAdjustment < 0) {
+      return res.status(409).json({ message: 'The adjustment cannot reduce stock below zero.' });
+    }
 
     const [result] = await db.execute(
       'CALL sp_adjust_warehouse_stock(?, ?, ?, ?)',

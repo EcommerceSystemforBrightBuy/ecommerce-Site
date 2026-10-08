@@ -8,51 +8,92 @@ import {
   Search,
 } from "lucide-react";
 
+const API_URL = (process.env.NEXT_PUBLIC_URL || "http://localhost:8000").replace(/\/$/, "");
+
+const readInventory = async () => {
+  const response = await fetch(`${API_URL}/api/inventory`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch inventory");
+  }
+  return response.json();
+};
+
 export default function AdminInventoryPage() {
   const [skuList, setSkuList] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [stockNotice, setStockNotice] = useState("");
+  const [stockError, setStockError] = useState("");
+  const [inventoryError, setInventoryError] = useState("");
+  const [adjustments, setAdjustments] = useState({});
+  const [updatingSku, setUpdatingSku] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchInventory = async () => {
+  useEffect(() => {
+    let active = true;
+    readInventory()
+      .then((data) => {
+        if (active) setSkuList(data);
+      })
+      .catch((error) => {
+        console.error("Inventory fetch error:", error);
+        if (active) setInventoryError(error.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const refreshInventory = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:8000/api/inventory");
-      if (!response.ok) {
-        throw new Error("Failed to fetch inventory");
-      }
-      const data = await response.json();
-      setSkuList(data);
+      setInventoryError("");
+      setSkuList(await readInventory());
     } catch (error) {
       console.error("Inventory fetch error:", error);
+      setInventoryError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchInventory();
-  }, []);
+  const handleAdjustStock = async (sku) => {
+    const adjustment = Number(adjustments[sku]);
+    if (!Number.isInteger(adjustment) || adjustment === 0) {
+      setStockError("Enter a non-zero whole number. Use a positive value to add stock or a negative value to remove it.");
+      return;
+    }
 
-  const handleAdjustStock = async (sku, adjustment, type) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/inventory/${sku}`, {
+      setUpdatingSku(sku);
+      setStockError("");
+      const response = await fetch(`${API_URL}/api/inventory/${encodeURIComponent(sku)}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ adjustment, type }),
+        body: JSON.stringify({
+          adjustment,
+          type: adjustment > 0 ? "restock" : "adjustment",
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update stock");
+        const result = await response.json();
+        throw new Error(result.message || "Failed to update stock");
       }
 
       setStockNotice(`SKU ${sku} inventory updated.`);
       setTimeout(() => setStockNotice(""), 2500);
-      await fetchInventory();
+      setAdjustments((previous) => ({ ...previous, [sku]: "" }));
+      await refreshInventory();
     } catch (error) {
       console.error("Stock update error:", error);
+      setStockError(error.message);
+    } finally {
+      setUpdatingSku(null);
     }
   };
 
@@ -85,6 +126,16 @@ export default function AdminInventoryPage() {
           <span>{stockNotice}</span>
         </div>
       )}
+      {stockError && (
+        <div role="alert" className="p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-900 font-bold">
+          {stockError}
+        </div>
+      )}
+      {inventoryError && (
+        <div role="alert" className="p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-900 font-bold">
+          Unable to load inventory: {inventoryError}
+        </div>
+      )}
 
       <div className="border border-[#DDDDDD] rounded-2xl p-4 bg-white flex items-center justify-between gap-4 text-xs">
         <div className="relative flex-1 max-w-md">
@@ -112,7 +163,7 @@ export default function AdminInventoryPage() {
                 <th className="py-4 px-4">Price</th>
                 <th className="py-4 px-4">WH Stock Quantity</th>
                 <th className="py-4 px-4">Texas Logistics Status</th>
-                <th className="py-4 px-6 text-right">Stock Adjustment</th>
+                <th className="py-4 px-6 text-right">Stock Adjustment (+/- units)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EBEBEB]">
@@ -120,6 +171,12 @@ export default function AdminInventoryPage() {
                 <tr>
                   <td colSpan="6" className="py-6 text-center text-[#717171]">
                     Loading inventory...
+                  </td>
+                </tr>
+              ) : inventoryError ? (
+                <tr>
+                  <td colSpan="6" className="py-6 text-center text-red-700">
+                    Inventory data is unavailable.
                   </td>
                 </tr>
               ) : filteredSkus.length === 0 ? (
@@ -175,24 +232,35 @@ export default function AdminInventoryPage() {
                       </td>
 
                       <td className="py-4 px-6 text-right">
-                        <div className="flex items-center justify-end gap-1">
+                        <form
+                          className="flex items-center justify-end gap-2"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            handleAdjustStock(item.sku);
+                          }}
+                        >
+                          <input
+                            type="number"
+                            step="1"
+                            value={adjustments[item.sku] ?? ""}
+                            onChange={(event) =>
+                              setAdjustments((previous) => ({
+                                ...previous,
+                                [item.sku]: event.target.value,
+                              }))
+                            }
+                            aria-label={`Stock adjustment for ${item.sku}`}
+                            placeholder="+/- quantity"
+                            className="w-28 px-2.5 py-1 rounded-lg border border-[#DDDDDD] text-right font-mono text-[#222222] focus:outline-none focus:border-[#222222]"
+                          />
                           <button
-                            type="button"
-                            onClick={() => handleAdjustStock(item.sku, -1, "adjustment")}
-                            className="px-2.5 py-1 rounded-lg border border-[#DDDDDD] bg-white hover:bg-[#F7F7F7] font-bold text-[#222222]"
-                            title="Decrease 1"
+                            type="submit"
+                            disabled={updatingSku === item.sku}
+                            className="px-2.5 py-1 rounded-lg border border-[#DDDDDD] bg-[#FF385C] text-white font-bold disabled:opacity-50"
                           >
-                            -1
+                            {updatingSku === item.sku ? "Saving..." : "Apply"}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleAdjustStock(item.sku, 10, "restock")}
-                            className="px-2.5 py-1 rounded-lg border border-[#DDDDDD] bg-[#FF385C] text-white font-bold"
-                            title="Restock 10"
-                          >
-                            +10
-                          </button>
-                        </div>
+                        </form>
                       </td>
                     </tr>
                   );

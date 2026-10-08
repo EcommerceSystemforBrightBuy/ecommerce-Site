@@ -62,10 +62,24 @@ exports.getAllOrders = async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT o.order_id, o.customer_id, o.order_date, o.order_status, o.total_amount,
-                   d.delivery_mode, d.estimated_delivery_date, d.delivery_status, p.payment_method, p.payment_status
+                   d.delivery_mode, d.estimated_delivery_date, d.delivery_status,
+                   payment.payment_method, payment.payment_status,
+                   c.city_name, c.is_main_city,
+                   CONCAT(u.first_name, ' ', u.last_name) AS customer_name,
+                   order_items.skus
             FROM \`order\` o
             LEFT JOIN delivery d ON o.order_id = d.order_id
-            LEFT JOIN payment p ON o.order_id = p.order_id
+            LEFT JOIN payment ON o.order_id = payment.order_id
+            LEFT JOIN customer_address ca ON d.delivery_address_id = ca.address_id
+            LEFT JOIN city c ON ca.city_id = c.city_id
+            LEFT JOIN customer cust ON o.customer_id = cust.customer_id
+            LEFT JOIN \`user\` u ON cust.user_id = u.user_id
+            LEFT JOIN (
+                SELECT oi.order_id, GROUP_CONCAT(DISTINCT pv.sku ORDER BY pv.sku) AS skus
+                FROM order_item oi
+                JOIN product_variant pv ON oi.variant_id = pv.variant_id
+                GROUP BY oi.order_id
+            ) order_items ON o.order_id = order_items.order_id
             ORDER BY o.order_date DESC
         `);
         res.json({ success: true, data: rows });
@@ -93,7 +107,7 @@ exports.getOrderById = async (req, res) => {
         }
 
         const [itemRows] = await pool.query(
-            `SELECT oi.*, pv.sku, p.title 
+            `SELECT oi.*, pv.sku, p.product_name
              FROM order_item oi
              JOIN product_variant pv ON oi.variant_id = pv.variant_id
              JOIN product p ON pv.product_id = p.product_id
@@ -113,66 +127,109 @@ exports.getOrderById = async (req, res) => {
 
 // 4. PUT /api/orders/:id/status — Admin Dispatch Update
 exports.updateOrderStatus = async (req, res) => {
+    const { id } = req.params;
+    const requestedStatus = String(req.body?.status || '').toLowerCase();
+    const allowedStatuses = ['pending', 'dispatched', 'delivered', 'failed'];
+
+    if (!allowedStatuses.includes(requestedStatus)) {
+        return res.status(400).json({ success: false, error: 'Invalid delivery status.' });
+    }
+
     const connection = await pool.getConnection();
     try {
-        const { id } = req.params;
-        const { status } = req.body;
-
         await connection.beginTransaction();
 
-        // 1. Get current delivery status to check if already dispatched
         const [delRows] = await connection.query(
-            `SELECT delivery_status FROM delivery WHERE order_id = ?`,
+            `SELECT delivery_status FROM delivery WHERE order_id = ? FOR UPDATE`,
             [id]
         );
 
-        const currentStatus = delRows.length > 0 ? delRows[0].delivery_status : null;
-
-        // 2. Update delivery status
-        await connection.query(
-            `UPDATE delivery SET delivery_status = ? WHERE order_id = ?`,
-            [status, id]
-        );
-
-        // Also sync order_status in order table
-        const lowerStatus = (status || '').toLowerCase();
-        if (lowerStatus === 'dispatched' || lowerStatus === 'shipped') {
-            await connection.query(
-                `UPDATE \`order\` SET order_status = 'shipped' WHERE order_id = ?`,
-                [id]
-            );
-        } else if (lowerStatus === 'delivered') {
-            await connection.query(
-                `UPDATE \`order\` SET order_status = 'delivered' WHERE order_id = ?`,
-                [id]
-            );
+        if (delRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ success: false, error: 'Order delivery not found.' });
         }
 
-        // 3. Deduct inventory stock when status changes to dispatched/shipped/delivered for the first time
-        const isDispatched = ['dispatched', 'shipped', 'delivered'].includes(lowerStatus);
-        const wasDispatched = ['dispatched', 'shipped', 'delivered'].includes((currentStatus || '').toLowerCase());
+        const currentStatus = delRows[0].delivery_status;
+        const wasDispatched = ['dispatched', 'delivered', 'failed'].includes(currentStatus);
+        const isDispatched = ['dispatched', 'delivered', 'failed'].includes(requestedStatus);
 
-        if (isDispatched && !wasDispatched) {
-            // Fetch order items for this order
+        if (isDispatched !== wasDispatched) {
             const [items] = await connection.query(
-                `SELECT variant_id, quantity FROM order_item WHERE order_id = ?`,
+                `SELECT oi.variant_id, SUM(oi.quantity) AS quantity
+                 FROM order_item oi
+                 WHERE oi.order_id = ?
+                 GROUP BY oi.variant_id
+                 ORDER BY oi.variant_id`,
                 [id]
             );
 
-            // Deduct stock in inventory table for each item
             for (const item of items) {
+                const [inventoryRows] = await connection.query(
+                    `SELECT inventory_id, quantity_on_hand
+                     FROM inventory
+                     WHERE variant_id = ?
+                     FOR UPDATE`,
+                    [item.variant_id]
+                );
+
+                if (inventoryRows.length === 0) {
+                    throw new Error(`Inventory row missing for variant ${item.variant_id}.`);
+                }
+
+                const quantity = Number(item.quantity);
+                const change = isDispatched ? -quantity : quantity;
+                if (isDispatched && Number(inventoryRows[0].quantity_on_hand) < quantity) {
+                    await connection.rollback();
+                    return res.status(409).json({
+                        success: false,
+                        error: `Insufficient stock for variant ${item.variant_id}.`,
+                    });
+                }
+
                 await connection.query(
-                    `UPDATE inventory SET quantity_on_hand = quantity_on_hand - ? WHERE variant_id = ?`,
-                    [item.quantity, item.variant_id]
+                    `UPDATE inventory
+                     SET quantity_on_hand = quantity_on_hand + ?
+                     WHERE variant_id = ?`,
+                    [change, item.variant_id]
+                );
+                await connection.query(
+                    `INSERT INTO inventory_transaction
+                     (transaction_id, inventory_id, order_id, transaction_type, quantity_change)
+                     VALUES (UUID(), ?, ?, ?, ?)`,
+                    [
+                        inventoryRows[0].inventory_id,
+                        id,
+                        isDispatched ? 'order_deduction' : 'return',
+                        change,
+                    ]
                 );
             }
+        }
+
+        await connection.query(
+            `UPDATE delivery SET delivery_status = ? WHERE order_id = ?`,
+            [requestedStatus, id]
+        );
+
+        const orderStatus = requestedStatus === 'dispatched'
+            ? 'shipped'
+            : requestedStatus === 'delivered'
+                ? 'delivered'
+                : requestedStatus === 'pending'
+                    ? 'pending'
+                    : null;
+        if (orderStatus) {
+            await connection.query(
+                `UPDATE \`order\` SET order_status = ? WHERE order_id = ?`,
+                [orderStatus, id]
+            );
         }
 
         await connection.commit();
 
         res.json({
             success: true,
-            message: `Order ${id} status updated to ${status} and inventory updated upon dispatch.`
+            message: `Order ${id} status updated to ${requestedStatus}.`
         });
     } catch (error) {
         await connection.rollback();
@@ -182,4 +239,3 @@ exports.updateOrderStatus = async (req, res) => {
         connection.release();
     }
 };
-

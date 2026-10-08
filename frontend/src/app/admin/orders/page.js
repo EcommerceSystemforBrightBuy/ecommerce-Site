@@ -1,89 +1,89 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { UPCOMING_DELIVERY_ESTIMATES } from "@/data/mockAdminData";
 import {
-  ShoppingBag,
   Search,
   Truck,
   Store,
-  CreditCard,
-  Banknote,
   Eye,
-  CheckCircle2,
-  Clock,
-  Warehouse,
   X,
 } from "lucide-react";
+
+const API_URL = (process.env.NEXT_PUBLIC_URL || "http://localhost:8000").replace(/\/$/, "");
+
+const readOrders = async () => {
+  const response = await fetch(`${API_URL}/api/orders`);
+  if (!response.ok) throw new Error("Failed to fetch orders.");
+  const result = await response.json();
+  if (!result.success) throw new Error(result.error || "Failed to fetch orders.");
+  return result.data.map((order) => ({
+    orderId: order.order_id,
+    customerName: order.customer_name || order.customer_id,
+    fulfillmentMode: order.delivery_mode,
+    city: order.city_name || "",
+    isMainCity: Boolean(order.is_main_city),
+    estimatedDate: order.estimated_delivery_date
+      ? new Date(order.estimated_delivery_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      : "Not scheduled",
+    status: order.delivery_status || "pending",
+    skus: order.skus ? order.skus.split(",") : [],
+  }));
+};
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [ordersError, setOrdersError] = useState("");
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
+  const [updateError, setUpdateError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [modeFilter, setModeFilter] = useState("all");
   const [viewOrderModal, setViewOrderModal] = useState(null);
 
 
 
-  //fetch orders
-  const fetchOrders = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("http://localhost:8000/api/orders");
-      const result = await res.json();
-      if (result.success) {
-        // Map database fields to UI property names
-        const mappedOrders = result.data.map((o) => ({
-          orderId: o.order_id,
-          customerName: o.customer_id || "CUST001",
-          fulfillmentMode: o.delivery_mode || "Standard Delivery",
-          city: "Texas",
-          estimatedDate: o.estimated_delivery_date
-            ? new Date(o.estimated_delivery_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-            : "5-7 Days",
-          status: o.delivery_status || o.order_status || "pending",
-          totalAmount: o.total_amount,
-          paymentMethod: o.payment_method || "Card Payment",
-          skus: ["SKU-VAR001"], // Default fallback SKU list
-          carrier: "Texas Regional Express",
-          estArrivalDate: o.estimated_delivery_date
-            ? new Date(o.estimated_delivery_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-            : "5-7 Days"
-        }));
-        setOrders(mappedOrders);
-      }
-    } catch (error) {
-      console.error("Failed to fetch admin orders:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
   useEffect(() => {
-    fetchOrders();
+    let active = true;
+    readOrders()
+      .then((data) => {
+        if (active) setOrders(data);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch admin orders:", error);
+        if (active) setOrdersError(error.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
 
-  // update order status
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/orders/${orderId}/status`, {
+      setUpdatingOrderId(orderId);
+      setLoading(true);
+      setUpdateError("");
+      setOrdersError("");
+      const response = await fetch(`${API_URL}/api/orders/${encodeURIComponent(orderId)}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-      const result = await res.json();
-      if (result.success) {
-        // Update local state UI
-        setOrders((prev) =>
-          prev.map((o) => (o.orderId === orderId ? { ...o, status: newStatus } : o))
-        );
-      } else {
-        alert("Failed to update status: " + result.error);
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to update order status.");
       }
+      setOrders(await readOrders());
     } catch (error) {
       console.error("Error updating status:", error);
-      alert("Server error connecting to backend API.");
+      setUpdateError(error.message);
+      setOrdersError(error.message);
+    } finally {
+      setLoading(false);
+      setUpdatingOrderId(null);
     }
   };
 
@@ -146,6 +146,12 @@ export default function AdminOrdersPage() {
         </div>
       </div>
 
+      {updateError && (
+        <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 font-bold">
+          {updateError}
+        </div>
+      )}
+
       {/* Orders Data Table */}
       <div className="border border-[#DDDDDD] rounded-3xl bg-white overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
@@ -161,7 +167,13 @@ export default function AdminOrdersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EBEBEB]">
-              {filteredOrders.map((o) => (
+              {loading ? (
+                <tr><td colSpan="6" className="py-6 text-center text-[#717171]">Loading orders...</td></tr>
+              ) : ordersError ? (
+                <tr><td colSpan="6" className="py-6 text-center text-red-700">{ordersError}</td></tr>
+              ) : filteredOrders.length === 0 ? (
+                <tr><td colSpan="6" className="py-6 text-center text-[#717171]">No orders found.</td></tr>
+              ) : filteredOrders.map((o) => (
                 <tr key={o.orderId} className="hover:bg-[#F7F7F7] transition-colors">
                   <td className="py-4 px-6 font-mono">
                     <div className="font-bold text-[#222222] text-sm">{o.orderId}</div>
@@ -180,15 +192,14 @@ export default function AdminOrdersPage() {
                   </td>
 
                   <td className="py-4 px-4">
-                    <div className="font-bold text-[#222222]">{o.city}, TX</div>
+                    <div className="font-bold text-[#222222]">{o.city ? `${o.city}, TX` : "Address not provided"}</div>
                     <div className="text-[10px] text-[#717171]">
-                      {o.isMainCity ? "5-Day Metro City" : "7-Day Regional Transit"}
+                      {o.city ? (o.isMainCity ? "Main service city" : "Regional service city") : "No delivery city"}
                     </div>
                   </td>
 
                   <td className="py-4 px-4">
-                    <div className="font-bold text-emerald-700">{o.estArrivalDate}</div>
-                    <div className="text-[10px] text-[#717171]">{o.totalEstDays} Days total</div>
+                    <div className="font-bold text-emerald-700">{o.estimatedDate}</div>
                   </td>
 
                   <td className="py-4 px-4">
@@ -206,12 +217,16 @@ export default function AdminOrdersPage() {
                       >
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => updateOrderStatus(o.orderId, "Dispatched")}
-                        className="px-2.5 py-1 rounded-lg bg-[#222222] text-white font-bold text-[10px]"
+                      <select
+                        aria-label={`Dispatch status for order ${o.orderId}`}
+                        value={["dispatched", "delivered", "failed"].includes(o.status.toLowerCase()) ? "dispatched" : "pending"}
+                        disabled={updatingOrderId === o.orderId}
+                        onChange={(event) => updateOrderStatus(o.orderId, event.target.value)}
+                        className="px-2.5 py-1 rounded-lg border border-[#DDDDDD] bg-white text-[#222222] font-bold text-[10px] disabled:opacity-50"
                       >
-                        Dispatch
-                      </button>
+                        <option value="pending">Not dispatched</option>
+                        <option value="dispatched">Dispatched</option>
+                      </select>
                     </div>
                   </td>
                 </tr>
@@ -237,30 +252,18 @@ export default function AdminOrdersPage() {
               </button>
             </div>
 
-            <div className="space-y-1 font-mono text-[11px]">
-              {(viewOrderModal.skus || []).map((s, idx) => (
-                <div key={idx} className="flex justify-between text-[#222222]">
-                  <span>• {s}</span>
-                  <span className="text-emerald-700 font-bold">Decremented Atomic DB</span>
-                </div>
-              ))}
-            </div>
-
             <div className="p-4 rounded-2xl bg-[#F7F7F7] border border-[#DDDDDD] space-y-2">
-              <div className="font-bold text-[#222222]">Mapped Warehouse SKUs</div>
+              <div className="font-bold text-[#222222]">Items in this order</div>
               <div className="space-y-1 font-mono text-[11px]">
-                {viewOrderModal.skus.map((s, idx) => (
-                  <div key={idx} className="flex justify-between text-[#222222]">
-                    <span>• {s}</span>
-                    <span className="text-emerald-700 font-bold">Decremented Atomic DB</span>
-                  </div>
-                ))}
+                {viewOrderModal.skus.length ? viewOrderModal.skus.map((sku) => (
+                  <div key={sku} className="text-[#222222]">• {sku}</div>
+                )) : <div className="text-[#717171]">No item SKUs found in the database.</div>}
               </div>
             </div>
 
             <div className="space-y-1 text-[#717171]">
-              <div>Courier Carrier: <strong className="text-[#222222]">{viewOrderModal.carrier}</strong></div>
-              <div>Estimated Arrival: <strong className="text-[#FF385C]">{viewOrderModal.estArrivalDate}</strong></div>
+              <div>Destination: <strong className="text-[#222222]">{viewOrderModal.city || "Not provided"}</strong></div>
+              <div>Estimated Arrival: <strong className="text-[#FF385C]">{viewOrderModal.estimatedDate}</strong></div>
             </div>
 
             <div className="pt-2 flex justify-end">
