@@ -6,6 +6,7 @@ const categoryRouter = require('./routes/categoryRouter');
 const orderRoutes = require('./routes/orderRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const staffRoutes = require('./routes/staffRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 
 const app = express(); //Stating the app with express
 app.use(cors()); //For connecting backend with frontend url
@@ -18,6 +19,7 @@ app.use('/api/categories',categoryRouter);
 app.use('/api/orders', orderRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/staff', staffRoutes);
+app.use('/api/reports', reportRoutes);
 
 app.listen(port, () => {
     console.log("Server is running on port: ", port);
