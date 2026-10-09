@@ -9,17 +9,27 @@ import { Search, Star, Heart, SlidersHorizontal } from "lucide-react";
 export default function ProductsSearchPage() {
   const { selectedCity } = useShop();
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCat, setSelectedCat] = useState("all");
   const [inStockOnly, setInStockOnly] = useState(false);
   const [sortBy, setSortBy] = useState("featured");
   const [favorites, setFavorites] = useState({});
-  const[ products, setproducts ] = useState([]);
+  const [products, setproducts ] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() =>{
+    const timer = setTimeout(() =>{
+      setDebouncedSearch(searchQuery);
+    }, 300) // Delay 300ms to send an api to search
+
+    return () => clearTimeout(timer);
+  },[searchQuery]);
   
   useEffect(()=>{
       const params = new URLSearchParams();
       if(selectedCat !== "all") params.append("category", selectedCat);
-      if(searchQuery.trim()) params.append("search",searchQuery.trim());
+      if(debouncedSearch.trim()) params.append("search",debouncedSearch.trim());
 
       fetch(`${process.env.NEXT_PUBLIC_URL}/api/products?${params.toString()}`)
       .then(response => {
@@ -28,12 +38,14 @@ export default function ProductsSearchPage() {
         })
       .then(data => {
         setproducts(data);
+        setLoading(false);
       })
       .catch(err =>{
         console.error("Error fetching products:",err);
         setproducts([]);
+        setLoading(false);
       })
-  },[selectedCat, searchQuery]);
+  },[selectedCat, debouncedSearch]);
 
   useEffect(() =>{
     fetch(`${process.env.NEXT_PUBLIC_URL}/api/categories`)
@@ -72,6 +84,15 @@ export default function ProductsSearchPage() {
       return 0;
     });
   }, [products, inStockOnly, sortBy]);
+  
+  if (loading) {
+    return (
+      <div role="status" className="flex items-center justify-center min-h-screen">
+        <div className="h-12 w-12 animate-spin rounded-full border-2 border-[#222222]/20 border-t-[#222222]" />
+        <span className="sr-only">Loading…</span>
+      </div>
+    );
+  }
   
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-8">
