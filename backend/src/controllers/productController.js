@@ -1,6 +1,6 @@
 const pool = require('./../config/db')
 const {
-    nextID,
+    nextId,
     insertVariant,
     insertAttributes,
     insertCategories,
@@ -142,7 +142,7 @@ const createProduct = async(req, res) => {
         await Connection.beginTransaction(); //Using transaction for keep ACID property
         
         //Generating product id
-        const product_id = await nextID(Connection, "product");
+        const product_id = await nextId(Connection, "product", "product_id", "PRD", 4);
 
         await Connection.execute(
             "Insert into product (product_id, product_name, brand, badge, image_url, description, created_at) values (?,?,?,?,?,?,?)",
@@ -274,9 +274,9 @@ const updateProduct = async(req, res) =>{
                 const [row] = await Connection.execute(
                     "Update product_variant set variant_name = ?, price = ?, sku = ? where product_id = ? and variant_id = ?",
                     [
-                        v.variant_name.trim() ?? null,
+                        v.variant_name?.trim() ?? null,
                         price,
-                        v.sku.trim() ?? null,
+                        v.sku?.trim() ?? null,
                         req.params.id,
                         v.variant_id
                     ]
