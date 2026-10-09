@@ -1,31 +1,47 @@
-const pool = require('./../config/db')
+const pool = require(`./../config/db`)
 const {
     nextId,
     insertVariant,
     insertAttributes,
     insertCategories,
     validateVariant
-} = require('./../utills/dbHelpers');
+} = require(`./../utills/dbHelpers`);
 
 const getAllProducts = async(req, res) => {
     try{
         const {category, search} = req.query;
 
-        let sql_query = 'Select p.product_id,p.product_name as name,p.brand, round(AVG(f.rating), 1) as rating, count(distinct f.feedback_id) as reviewCount, p.description,p.image_url,v.price,v.sku,i.quantity_on_hand as stock,GROUP_CONCAT(DISTINCT c.category_name) as categories from product p left join product_variant v on p.product_id = v.product_id and  v.is_default = True and v.is_active = True left join inventory i on v.variant_id = i.variant_id left join product_feedback f on p.product_id = f.product_id left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id where p.is_active = 1';
+        let sql_query = 
+            `Select p.product_id,p.product_name as name,p.brand, round(AVG(f.rating), 1) as rating, count(distinct f.feedback_id) as reviewCount, 
+             p.description,p.image_url,v.price,v.sku,i.quantity_on_hand as stock,GROUP_CONCAT(DISTINCT c.category_name) as categories 
+             from product p 
+             left join product_variant v on p.product_id = v.product_id and  v.is_default = True and v.is_active = True 
+             left join inventory i on v.variant_id = i.variant_id 
+             left join product_feedback f on p.product_id = f.product_id 
+             left join product_category pc on p.product_id = pc.product_id 
+             left join category c on c.category_id = pc.category_id 
+             where p.is_active = 1`;
         const params = [];
 
         if(category){
-            sql_query += ' and p.product_id in (select pc2.product_id from product_category pc2 left join category c2 on c2.category_id = pc2.category_id where c2.category_name = ?)';
+            sql_query += 
+                ` and p.product_id in 
+                  (
+                    select pc2.product_id 
+                    from product_category pc2 
+                    left join category c2 on c2.category_id = pc2.category_id 
+                    where c2.category_name = ?
+                )`;
             params.push(category);
         }
 
         if(search){
-            sql_query += ' and (p.product_name like ? or p.brand like ? or v.sku like ?)';
+            sql_query += ` and (p.product_name like ? or p.brand like ? or v.sku like ?)`;
             const term = `%${search}%`;
             params.push(term, term, term);
         }
 
-        sql_query += ' GROUP BY p.product_id, p.product_name, p.brand, p.description, p.image_url, v.price, v.sku, i.quantity_on_hand';
+        sql_query += ` GROUP BY p.product_id, p.product_name, p.brand, p.description, p.image_url, v.price, v.sku, i.quantity_on_hand`;
 
         const [products] = await pool.execute(sql_query,params);
 
@@ -45,11 +61,21 @@ const getAllProducts = async(req, res) => {
 const getAllProductswithVariants = async(req,res) =>{
     try {
         const [products] = await pool.execute(
-            'Select p.product_id,p.product_name as name, p.brand, v.price, p.badge, round(AVG(f.rating), 1) as rating, count(Distinct f.feedback_id) as reviewCount,p.description, p.image_url, GROUP_CONCAT(DISTINCT c.category_name) as categories from product p left join product_variant v on p.product_id = v.product_id and v.is_default = True and v.is_active = True left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id left join product_feedback f on p.product_id = f.product_id where p.is_active = 1 GROUP BY p.product_id, p.product_name, p.brand, p.badge, v.price, p.description, p.image_url'
+            `Select p.product_id,p.product_name as name, p.brand, v.price, p.badge, round(AVG(f.rating), 1) as rating,
+             count(Distinct f.feedback_id) as reviewCount,p.description, p.image_url, GROUP_CONCAT(DISTINCT c.category_name) as categories 
+             from product p 
+             left join product_variant v on p.product_id = v.product_id and v.is_default = True and v.is_active = True 
+             left join product_category pc on p.product_id = pc.product_id 
+             left join category c on c.category_id = pc.category_id 
+             left join product_feedback f on p.product_id = f.product_id where p.is_active = 1 
+             GROUP BY p.product_id, p.product_name, p.brand, p.badge, v.price, p.description, p.image_url`
         );
     
         const [temp_variants] = await pool.execute(
-            "Select v.product_id, v.variant_id, v.variant_name, v.sku, v.price, i.quantity_on_hand as stock from product_variant v left join inventory i on v.variant_id = i.variant_id where v.is_active = True"
+            `Select v.product_id, v.variant_id, v.variant_name, v.sku, v.price, i.quantity_on_hand as stock 
+             from product_variant v 
+             left join inventory i on v.variant_id = i.variant_id 
+             where v.is_active = True`
         );
 
         const final_products = products.map(p =>{
@@ -77,7 +103,12 @@ const getProductByID = async(req, res) =>{
     try{
         //Using prepare statement to prevent data from SQL injection kind of issues.
         const [productRows] = await pool.execute(
-            "Select p.product_id, p.product_name as name, p.brand, p.badge, round(AVG(f.rating), 1) as rating, count(f.feedback_id) as reviewCount, p.description, p.image_url from product p left join product_feedback f on p.product_id = f.product_id where p.product_id = ? and p.is_active = True group by p.product_id, p.brand, p.badge, p.description, p.image_url", 
+            `Select p.product_id, p.product_name as name, p.brand, p.badge, round(AVG(f.rating), 1) as rating,
+             count(f.feedback_id) as reviewCount, p.description, p.image_url 
+             from product p 
+             left join product_feedback f on p.product_id = f.product_id 
+             where p.product_id = ? and p.is_active = True 
+             group by p.product_id, p.brand, p.badge, p.description, p.image_url`, 
             [
                 req.params.id
             ]
@@ -87,13 +118,16 @@ const getProductByID = async(req, res) =>{
             return res.status(404).json({error : "Product not found"});
         }    
 
-        const [temp_variants] = await pool.execute("Select v.variant_id,v.variant_name,v.price,v.sku,i.quantity_on_hand as stock from product_variant v left join inventory i on v.variant_id = i.variant_id where v.product_id = ? and v.is_active = True",
+        const [temp_variants] = await pool.execute(`Select v.variant_id,v.variant_name,v.price,v.sku,i.quantity_on_hand as stock 
+                                                     from product_variant v 
+                                                     left join inventory i on v.variant_id = i.variant_id 
+                                                     where v.product_id = ? and v.is_active = True`,
                                               [req.params.id]
                                              );
 
         //Adding attributes to variants
         for(const v of temp_variants){
-            const [var_attributes] = await pool.execute("Select attribute_name,attribute_value from product_attribute where variant_id = ?",
+            const [var_attributes] = await pool.execute(`Select attribute_name,attribute_value from product_attribute where variant_id = ?`,
                                                         [v.variant_id]
             );
 
@@ -106,8 +140,13 @@ const getProductByID = async(req, res) =>{
 
         
         //Taking categories of the product 
-        const [categories] =await pool.execute("Select c.category_name from product p left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id where p.product_id = ?",
-                                             [req.params.id]
+        const [categories] =await pool.execute(
+            `Select c.category_name 
+             from product p left 
+             join product_category pc on p.product_id = pc.product_id 
+             left join category c on c.category_id = pc.category_id 
+             where p.product_id = ?`,
+            [req.params.id]
         )
 
         res.status(200).json({...productRows[0], categories, variants}); //as productRows return row and field, we only need data here and the variants.
@@ -394,7 +433,7 @@ const deleteProduct =async(req, res) =>{
         console.error(err);
         res.status(500).json({error : "Failed to delete product"});
 
-        //We don't have to catch foreign key delete errors because we handle that in schema.sql by cascade delete.
+        //We don`t have to catch foreign key delete errors because we handle that in schema.sql by cascade delete.
     }
 }
 
