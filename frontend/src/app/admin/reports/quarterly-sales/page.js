@@ -1,19 +1,35 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { QUARTERLY_SALES_DATA } from "@/data/mockAdminData";
 import { ArrowLeft, TrendingUp, Calendar, Printer } from "lucide-react";
 
 export default function QuarterlySalesReportPage() {
   const [selectedYear, setSelectedYear] = useState("2026");
 
-  const quarterlyData = QUARTERLY_SALES_DATA[selectedYear] || QUARTERLY_SALES_DATA["2026"];
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`${process.env.NEXT_PUBLIC_URL}/api/reports/quarterly-sales?year=${selectedYear}`)
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((data) => { setRows(data); setError(""); })
+      .catch(() => setError("Could not load report data"))
+      .finally(() => setLoading(false));
+  }, [selectedYear]);
+
+  const quarterlyData = rows.map((r) => ({
+    quarter: `Q${r.sales_quarter}`,
+    orders: r.total_orders,
+    revenue: r.total_revenue,
+    avgOrderValue: r.total_orders ? r.total_revenue / r.total_orders : 0,
+  }));
   const totalYearRevenue = quarterlyData.reduce((acc, q) => acc + q.revenue, 0);
   const totalYearOrders = quarterlyData.reduce((acc, q) => acc + q.orders, 0);
   const avgOrderValue = totalYearRevenue / (totalYearOrders || 1);
-
-  const maxRevenue = Math.max(...quarterlyData.map((q) => q.revenue));
+  const maxRevenue = Math.max(1, ...quarterlyData.map((q) => q.revenue));
 
   return (
     <div className="space-y-6">

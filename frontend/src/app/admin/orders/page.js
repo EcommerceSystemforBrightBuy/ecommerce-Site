@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { UPCOMING_DELIVERY_ESTIMATES } from "@/data/mockAdminData";
 import {
@@ -18,10 +18,76 @@ import {
 } from "lucide-react";
 
 export default function AdminOrdersPage() {
-  const [orders, setOrders] = useState(UPCOMING_DELIVERY_ESTIMATES);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [modeFilter, setModeFilter] = useState("all");
   const [viewOrderModal, setViewOrderModal] = useState(null);
+
+
+
+  //fetch orders
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("http://localhost:8000/api/orders");
+      const result = await res.json();
+      if (result.success) {
+        // Map database fields to UI property names
+        const mappedOrders = result.data.map((o) => ({
+          orderId: o.order_id,
+          customerName: o.customer_id || "CUST001",
+          fulfillmentMode: o.delivery_mode || "Standard Delivery",
+          city: "Texas",
+          estimatedDate: o.estimated_delivery_date
+            ? new Date(o.estimated_delivery_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+            : "5-7 Days",
+          status: o.delivery_status || o.order_status || "pending",
+          totalAmount: o.total_amount,
+          paymentMethod: o.payment_method || "Card Payment",
+          skus: ["SKU-VAR001"], // Default fallback SKU list
+          carrier: "Texas Regional Express",
+          estArrivalDate: o.estimated_delivery_date
+            ? new Date(o.estimated_delivery_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+            : "5-7 Days"
+        }));
+        setOrders(mappedOrders);
+      }
+    } catch (error) {
+      console.error("Failed to fetch admin orders:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+
+  // update order status
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/orders/${orderId}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        // Update local state UI
+        setOrders((prev) =>
+          prev.map((o) => (o.orderId === orderId ? { ...o, status: newStatus } : o))
+        );
+      } else {
+        alert("Failed to update status: " + result.error);
+      }
+    } catch (error) {
+      console.error("Error updating status:", error);
+      alert("Server error connecting to backend API.");
+    }
+  };
+
+
 
   const filteredOrders = orders.filter((o) => {
     if (modeFilter === "standard" && o.fulfillmentMode !== "Standard Delivery") return false;
@@ -36,11 +102,6 @@ export default function AdminOrdersPage() {
     return true;
   });
 
-  const updateOrderStatus = (orderId, newStatus) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.orderId === orderId ? { ...o, status: newStatus } : o))
-    );
-  };
 
   return (
     <div className="space-y-6">
@@ -176,12 +237,13 @@ export default function AdminOrdersPage() {
               </button>
             </div>
 
-            <div className="space-y-1">
-              <div className="text-lg font-black text-[#222222]">{viewOrderModal.orderId}</div>
-              <div className="text-xs text-[#717171]">Customer: {viewOrderModal.customerName}</div>
-              <div className="text-xs text-[#717171]">
-                Fulfillment: {viewOrderModal.fulfillmentMode} ({viewOrderModal.city}, TX)
-              </div>
+            <div className="space-y-1 font-mono text-[11px]">
+              {(viewOrderModal.skus || []).map((s, idx) => (
+                <div key={idx} className="flex justify-between text-[#222222]">
+                  <span>• {s}</span>
+                  <span className="text-emerald-700 font-bold">Decremented Atomic DB</span>
+                </div>
+              ))}
             </div>
 
             <div className="p-4 rounded-2xl bg-[#F7F7F7] border border-[#DDDDDD] space-y-2">

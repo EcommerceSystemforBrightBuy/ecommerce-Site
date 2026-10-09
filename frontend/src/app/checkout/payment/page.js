@@ -32,6 +32,48 @@ export default function CheckoutPaymentPage() {
     setLastOrder,
   } = useShop();
 
+
+  const handlePayNow = async (e) => {
+    e.preventDefault();
+    setProcessing(true);
+
+    try {
+      const payload = {
+        customerId: currentUser?.id || 'CUST001',
+        totalAmount: totalDue,
+        deliveryMode: checkoutData.deliveryMode || "standard",
+        paymentMethod: checkoutData.paymentMethod === "card" ? "Card Payment" : "Cash on Delivery",
+        items: cartItems.map((item) => ({
+          varient_id: item.varient_id,
+          quantity: item.quantity,
+          unitPrice: item.variant.price
+        }))
+      };
+      const response = await fetch("http://localhost:8000/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        clearCart();
+        setProcessing(false);
+        router.push("/checkout/confirmation");
+      } else {
+        alert("Cjeckput failed: " + result.error);
+        setProcessing(flase);
+      }
+    } catch (err) {
+      console.error("payment submission error", err);
+      alert("server error connectin to backend API");
+      setProcessing(false);
+    }
+
+  };
+
+
   const [processing, setProcessing] = useState(false);
 
   const hasOutOfStock = cartItems.some((i) => i.variant.stock <= 0);
@@ -44,8 +86,8 @@ export default function CheckoutPaymentPage() {
     checkoutData.deliveryMode === "pickup"
       ? 0.0
       : cartSubtotal > 150
-      ? 0.0
-      : 15.0;
+        ? 0.0
+        : 15.0;
 
   const totalDue = cartSubtotal + texasSalesTax + shippingFee;
 
@@ -53,46 +95,46 @@ export default function CheckoutPaymentPage() {
     STORE_PICKUP_LOCATIONS.find((s) => s.id === checkoutData.pickupStoreId) ||
     STORE_PICKUP_LOCATIONS[0];
 
-  const handlePlaceOrder = (e) => {
-    e.preventDefault();
-    setProcessing(true);
+  // const handlePlaceOrder = (e) => {
+  //   e.preventDefault();
+  //   setProcessing(true);
 
-    setTimeout(() => {
-      const orderId = `BB-TX-${new Date().getFullYear()}-${Math.floor(
-        100000 + Math.random() * 900000
-      )}`;
+  //   setTimeout(() => {
+  //     const orderId = `BB-TX-${new Date().getFullYear()}-${Math.floor(
+  //       100000 + Math.random() * 900000
+  //     )}`;
 
-      const orderRecord = {
-        orderId,
-        date: new Date().toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        }),
-        customer: currentUser,
-        items: [...cartItems],
-        subtotal: cartSubtotal,
-        tax: texasSalesTax,
-        shippingFee,
-        totalDue,
-        deliveryMode: checkoutData.deliveryMode,
-        paymentMethod: checkoutData.paymentMethod,
-        shippingCity: checkoutData.shippingCity,
-        streetAddress: checkoutData.streetAddress,
-        pickupStore: selectedStore,
-        estimatedArrival:
-          checkoutData.deliveryMode === "pickup"
-            ? "Ready within 24 hours"
-            : estimate.estimatedDate,
-        transitDays: estimate.days,
-      };
+  //     const orderRecord = {
+  //       orderId,
+  //       date: new Date().toLocaleDateString("en-US", {
+  //         month: "short",
+  //         day: "numeric",
+  //         year: "numeric",
+  //       }),
+  //       customer: currentUser,
+  //       items: [...cartItems],
+  //       subtotal: cartSubtotal,
+  //       tax: texasSalesTax,
+  //       shippingFee,
+  //       totalDue,
+  //       deliveryMode: checkoutData.deliveryMode,
+  //       paymentMethod: checkoutData.paymentMethod,
+  //       shippingCity: checkoutData.shippingCity,
+  //       streetAddress: checkoutData.streetAddress,
+  //       pickupStore: selectedStore,
+  //       estimatedArrival:
+  //         checkoutData.deliveryMode === "pickup"
+  //           ? "Ready within 24 hours"
+  //           : estimate.estimatedDate,
+  //       transitDays: estimate.days,
+  //     };
 
-      setLastOrder(orderRecord);
-      clearCart();
-      setProcessing(false);
-      router.push("/checkout/confirmation");
-    }, 1200);
-  };
+  //     setLastOrder(orderRecord);
+  //     clearCart();
+  //     setProcessing(false);
+  //     router.push("/checkout/confirmation");
+  //   }, 1200);
+  // };
 
   if (cartItems.length === 0) {
     return (
@@ -132,7 +174,7 @@ export default function CheckoutPaymentPage() {
         </p>
       </div>
 
-      <form onSubmit={handlePlaceOrder} className="space-y-8">
+      <form onSubmit={handlePayNow} className="space-y-8">
         {/* Payment Method Selector */}
         <div className="space-y-3">
           <label className="text-xs font-bold text-[#222222] uppercase tracking-wider block">
@@ -142,11 +184,10 @@ export default function CheckoutPaymentPage() {
             {/* Card Payment */}
             <div
               onClick={() => updateCheckoutData({ paymentMethod: "card" })}
-              className={`p-5 rounded-2xl border-2 cursor-pointer transition-all space-y-2 bg-white ${
-                checkoutData.paymentMethod === "card"
-                  ? "border-[#222222] ring-1 ring-[#222222] shadow-sm"
-                  : "border-[#DDDDDD] hover:border-[#222222]"
-              }`}
+              className={`p-5 rounded-2xl border-2 cursor-pointer transition-all space-y-2 bg-white ${checkoutData.paymentMethod === "card"
+                ? "border-[#222222] ring-1 ring-[#222222] shadow-sm"
+                : "border-[#DDDDDD] hover:border-[#222222]"
+                }`}
             >
               <div className="flex items-center gap-2 font-bold text-[#222222] text-sm">
                 <CreditCard className="w-4 h-4 text-[#FF385C]" />
@@ -160,11 +201,10 @@ export default function CheckoutPaymentPage() {
             {/* Cash on Delivery */}
             <div
               onClick={() => updateCheckoutData({ paymentMethod: "cod" })}
-              className={`p-5 rounded-2xl border-2 cursor-pointer transition-all space-y-2 bg-white ${
-                checkoutData.paymentMethod === "cod"
-                  ? "border-[#222222] ring-1 ring-[#222222] shadow-sm"
-                  : "border-[#DDDDDD] hover:border-[#222222]"
-              }`}
+              className={`p-5 rounded-2xl border-2 cursor-pointer transition-all space-y-2 bg-white ${checkoutData.paymentMethod === "cod"
+                ? "border-[#222222] ring-1 ring-[#222222] shadow-sm"
+                : "border-[#DDDDDD] hover:border-[#222222]"
+                }`}
             >
               <div className="flex items-center gap-2 font-bold text-[#222222] text-sm">
                 <Banknote className="w-4 h-4 text-[#FF385C]" />
