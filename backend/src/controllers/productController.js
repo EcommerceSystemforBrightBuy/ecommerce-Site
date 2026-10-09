@@ -117,6 +117,36 @@ const getProductByID = async(req, res) =>{
     }
 }
 
+const getProductwithReview = async(req, res) => {
+    
+    try {
+        const [reviews] = await pool.execute(
+            `Select f.feedback_id, f.rating, f.review, f.created_at,
+                u.first_name, Left(u.last_name,1) as last_initial
+             from product_feedback f
+             right join customer c on c.customer_id = f.customer_id
+             right join user u on u.user_id = c.user_id
+             where product_id = ?
+             order by f.created_at`,
+            [
+                req.params.id
+            ]
+        )
+    
+        if(reviews.length === 0){
+            res.status(200).json({message: "No reviews yet"})
+            return;
+        }
+
+        res.status(200).json(reviews);
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({error : "Failed to fetch product reviews"});
+    }
+
+}
+
 const createProduct = async(req, res) => {
     const {
            product_name,
@@ -388,6 +418,7 @@ module.exports = {
     getAllProducts,
     getAllProductswithVariants,
     getProductByID,
+    getProductwithReview,
     createProduct,
     updateProduct,
     deleteProduct,

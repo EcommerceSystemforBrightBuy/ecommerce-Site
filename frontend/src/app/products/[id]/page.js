@@ -32,6 +32,13 @@ export default function ProductDetailPage({ params }) {
   const [quantity, setQuantity] = useState(1);
   const [addedNotice, setAddedNotice] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [showAllReviews, setShowAllReviews] = useState(false);
+  const REVIEWS_PREVIEW = 3; // Number of reviews to show in preview mode
+  
+  const visibleReviews = showAllReviews
+    ? reviews
+    : reviews.slice(0, REVIEWS_PREVIEW); // Show only the limited number of reviews in preview mode
 
   useEffect(() => {
      fetch(`${process.env.NEXT_PUBLIC_URL}/api/products/${unwrappedParams.id}`)
@@ -51,6 +58,23 @@ export default function ProductDetailPage({ params }) {
        })
   },[unwrappedParams.id]); //it will make the page refresh once the id changed
 
+  useEffect(() =>{
+    fetch(`${process.env.NEXT_PUBLIC_URL}/api/products/${unwrappedParams.id}/review`)
+    .then(response => {
+      
+      if(!response.ok){
+        throw new Error("Failed to fetch product reviews")
+      }
+      return response.json()
+    })
+    .then(data => {
+      setReviews(Array.isArray(data) ? data : [])
+    })
+    .catch((err) =>{
+        console.error("Error fetching product reviews", err);
+    })
+  }, [unwrappedParams.id])
+
  if (loading) {
     return (
       <div role="status" className="flex items-center justify-center min-h-screen">
@@ -68,6 +92,15 @@ export default function ProductDetailPage({ params }) {
   const isInStock = activeVariant?.stock > 0;
   const estimate = calculateDeliveryEstimate(selectedCity.name, isInStock);
 
+  const getReviewerName = (r) =>
+    r.first_name
+      ? `${r.first_name} ${r.last_initial ? r.last_initial + "." : ""}`.trim()
+      : "Customer";
+
+  const ratingCounts = [5, 4, 3, 2, 1].map((star) => ({
+    star,
+    count: reviews.filter((r) => Number(r.rating) === star).length,
+  }));
 
   const handleAddToCart = () => {
     if(!activeVariant) return; // Ensure a variant is selected before adding to cart
@@ -115,29 +148,27 @@ export default function ProductDetailPage({ params }) {
         </div>
       </div>
 
-      {/* Large Airbnb Image Gallery Container */}
-      <div className="rounded-3xl overflow-hidden aspect-16/9 max-h-[460px] bg-[#F7F7F7] border border-[#EBEBEB] relative">
-        <img
-          src={product.image_url}
-          alt={product.name}
-          onError ={(e) =>{
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = '/placeholder.png';
-          }}
-          className="w-full h-full object-cover"
-        />
-
-        {product.badge && (
-          <span className="absolute top-4 left-4 px-3 py-1 bg-white/90 text-[#222222] font-bold text-xs rounded-full shadow-sm">
-            {product.badge}
-          </span>
-        )}
-      </div>
-
       {/* 2-Column Split Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 pt-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 pt-4 items-start">
         {/* Left Column: Specs & Texas Logistics Details */}
         <div className="lg:col-span-7 space-y-8">
+          <div className="relative aspect-[4/3] max-h-[520px] overflow-hidden rounded-3xl border border-[#EBEBEB] bg-[#F7F7F7] shadow-sm">
+            <img
+              src={product.image_url}
+              alt={product.name}
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = "/placeholder.png";
+              }}
+              className="h-full w-full object-cover"
+            />
+            {product.badge && (
+              <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-[#222222] shadow-sm">
+                {product.badge}
+              </span>
+            )}
+          </div>
+
           <div className="border-b border-[#EBEBEB] pb-6 space-y-3">
             <h2 className="text-xl font-bold text-[#222222]">
               About this hardware unit
@@ -207,6 +238,91 @@ export default function ProductDetailPage({ params }) {
                   </button>
                 );
               })}
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-lg text-[#222222]">
+                  Customer Reviews{" "}
+                  <span className="text-[#717171] font-normal">({reviews.length})</span>
+                </h3>
+
+                {product.rating && (
+                  <div className="flex items-center gap-1.5 text-sm font-bold text-[#222222]">
+                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    <span>{product.rating}</span>
+                    <span className="text-[#717171] font-normal">
+                      average · {product.reviewCount} {product.reviewCount === 1 ? "review" : "reviews"}
+                    </span>
+                  </div>
+                )}
+              </div>
+              {reviews.length > 0 && (
+                <div className="p-5 rounded-2xl border border-[#EBEBEB] bg-white shadow-sm flex flex-col sm:flex-row gap-6">
+                  <div className="flex flex-col items-center justify-center sm:w-40 shrink-0">
+                    <div className="text-4xl font-black text-[#222222]">{product.rating ?? "-"}</div>
+                    <div className="flex items-center gap-0.5 mt-1">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <Star
+                          key={n}
+                          className={`w-4 h-4 ${
+                            n <= Math.round(product.rating ?? 0)
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "fill-transparent text-[#DDDDDD]"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <div className="text-[11px] text-[#717171] mt-1">
+                      {reviews.length} {reviews.length === 1 ? "review" : "reviews"}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 space-y-1.5">
+                    {ratingCounts.map(({ star, count }) => (
+                      <div key={star} className="flex items-center gap-2 text-xs">
+                        <span className="w-8 font-semibold text-[#222222]">{star} ★</span>
+                        <div className="flex-1 h-2 rounded-full bg-[#F0F0F0] overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-yellow-400"
+                            style={{ width: `${(count / reviews.length) * 100}%` }}
+                          />
+                        </div>
+                        <span className="w-6 text-right text-[#717171]">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {reviews.length > 0 && (
+                <div className="space-y-4">
+                  {visibleReviews.map((review) => (
+                    <article key={review.feedback_id} className="rounded-2xl border border-[#E5E5E5] bg-[#F7F7F7] p-4 sm:p-5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="space-y-1.5">
+                          <p className="font-bold text-sm text-[#222222]">{getReviewerName(review)}</p>
+                          <div className="flex items-center gap-0.5" aria-label={`${review.rating} out of 5 stars`}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star key={star} className={`w-3.5 h-3.5 ${star <= Number(review.rating) ? "fill-yellow-400 text-yellow-400" : "text-[#DDDDDD]"}`} />
+                            ))}
+                          </div>
+                        </div>
+                        {review.created_at && (
+                          <time className="text-xs text-[#717171] sm:pt-0.5" dateTime={review.created_at}>
+                            {new Date(review.created_at).toLocaleDateString()}
+                          </time>
+                        )}
+                      </div>
+                      {review.review && <p className="mt-3 text-sm text-[#555555] leading-relaxed">{review.review}</p>}
+                    </article>
+                  ))}
+                  {reviews.length > REVIEWS_PREVIEW && (
+                    <button type="button" onClick={() => setShowAllReviews((show) => !show)} className="text-sm font-semibold underline text-[#222222]">
+                      {showAllReviews ? "Show fewer reviews" : `Show all ${reviews.length} reviews`}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Texas Central Warehouse & Logistics Guarantee */}
