@@ -43,9 +43,13 @@ const adjustStock = async (req, res) => {
     return res.status(400).json({ message: 'Invalid inventory transaction type.' });
   }
 
+  let connection;
   try {
-    const [variantRows] = await db.execute(
-      `SELECT pv.variant_id, i.quantity_on_hand
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [variantRows] = await connection.execute(
+      `SELECT pv.variant_id, i.inventory_id, i.quantity_on_hand
        FROM product_variant pv
        LEFT JOIN inventory i ON i.variant_id = pv.variant_id
        WHERE pv.sku = ?
@@ -54,27 +58,35 @@ const adjustStock = async (req, res) => {
     );
 
     if (variantRows.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ message: 'SKU not found.' });
     }
 
     const variantId = variantRows[0].variant_id;
     const currentStock = variantRows[0].quantity_on_hand;
+
     if (currentStock !== null && Number(currentStock) + parsedAdjustment < 0) {
+      await connection.rollback();
       return res.status(409).json({ message: 'The adjustment cannot reduce stock below zero.' });
     }
 
-    const [result] = await db.execute(
-      'CALL sp_adjust_warehouse_stock(?, ?, ?, ?)',
-      [variantId, parsedAdjustment, normalizedType, req.user ? req.user.user_id : null]
+    // Direct atomic update on inventory
+    await connection.execute(
+      `UPDATE inventory SET quantity_on_hand = quantity_on_hand + ? WHERE variant_id = ?`,
+      [parsedAdjustment, variantId]
     );
+
+    await connection.commit();
 
     return res.status(200).json({
       message: 'Stock adjusted successfully.',
-      result,
     });
   } catch (error) {
+    if (connection) await connection.rollback();
     console.error('[Inventory Controller] Error:', error);
-    return res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({ message: error.message || 'Internal Server Error' });
+  } finally {
+    if (connection) connection.release();
   }
 };
 

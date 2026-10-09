@@ -40,6 +40,24 @@ export default function AdminOrdersPage() {
   const [modeFilter, setModeFilter] = useState("all");
   const [viewOrderModal, setViewOrderModal] = useState(null);
 
+  const handleViewOrderDetails = async (orderId) => {
+    try {
+      setViewOrderModal({ loading: true, orderId });
+      const response = await fetch(`${API_URL}/api/orders/${encodeURIComponent(orderId)}`);
+      const result = await response.json();
+      if (result.success) {
+        setViewOrderModal(result);
+      } else {
+        alert("Failed to load order details: " + result.error);
+        setViewOrderModal(null);
+      }
+    } catch (error) {
+      console.error("Error fetching order details:", error);
+      alert("Error connecting to backend API.");
+      setViewOrderModal(null);
+    }
+  };
+
 
 
   useEffect(() => {
@@ -211,20 +229,21 @@ export default function AdminOrdersPage() {
                   <td className="py-4 px-6 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => setViewOrderModal(o)}
-                        className="p-2 rounded-xl hover:bg-[#EBEBEB] text-[#717171] hover:text-[#222222]"
-                        title="View Dispatch Sheet"
+                        onClick={() => handleViewOrderDetails(o.orderId)}
+                        className="p-2 rounded-xl bg-[#F7F7F7] border border-[#DDDDDD] hover:bg-[#EBEBEB] text-[#222222] font-semibold text-[11px] flex items-center gap-1.5"
+                        title="View Full Itemized Dispatch Sheet"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3.5 h-3.5 text-[#FF385C]" />
+                        <span>View Details</span>
                       </button>
                       <select
                         aria-label={`Dispatch status for order ${o.orderId}`}
                         value={["dispatched", "delivered", "failed"].includes(o.status.toLowerCase()) ? "dispatched" : "pending"}
                         disabled={updatingOrderId === o.orderId}
                         onChange={(event) => updateOrderStatus(o.orderId, event.target.value)}
-                        className="px-2.5 py-1 rounded-lg border border-[#DDDDDD] bg-white text-[#222222] font-bold text-[10px] disabled:opacity-50"
+                        className="px-2.5 py-1 rounded-lg border border-[#DDDDDD] bg-white text-[#222222] font-bold text-[10px] disabled:opacity-50 cursor-pointer"
                       >
-                        <option value="pending">Not dispatched</option>
+                        <option value="pending">Not Dispatched</option>
                         <option value="dispatched">Dispatched</option>
                       </select>
                     </div>
@@ -239,39 +258,129 @@ export default function AdminOrdersPage() {
       {/* DISPATCH SHEET MODAL */}
       {viewOrderModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-5 border border-[#DDDDDD] shadow-2xl animate-in zoom-in-95 duration-150 text-xs">
-            <div className="flex items-center justify-between border-b border-[#EBEBEB] pb-3">
-              <span className="text-xs font-bold text-[#FF385C] uppercase">
-                Order Dispatch Sheet
-              </span>
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 space-y-5 border border-[#DDDDDD] shadow-2xl animate-in zoom-in-95 duration-150 text-xs max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[#EBEBEB] pb-4">
+              <div>
+                <span className="text-xs font-bold text-[#FF385C] uppercase tracking-wider block">
+                  Official Order Dispatch Sheet
+                </span>
+                <h2 className="text-xl font-black text-[#222222]">
+                  Order: {viewOrderModal.order?.order_id || viewOrderModal.orderId}
+                </h2>
+              </div>
               <button
                 onClick={() => setViewOrderModal(null)}
-                className="p-1 rounded-full hover:bg-[#F7F7F7] text-[#717171]"
+                className="p-2 rounded-full hover:bg-[#F7F7F7] text-[#717171] border border-[#DDDDDD]"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[#F7F7F7] border border-[#DDDDDD] space-y-2">
-              <div className="font-bold text-[#222222]">Items in this order</div>
-              <div className="space-y-1 font-mono text-[11px]">
-                {viewOrderModal.skus.length ? viewOrderModal.skus.map((sku) => (
-                  <div key={sku} className="text-[#222222]">• {sku}</div>
-                )) : <div className="text-[#717171]">No item SKUs found in the database.</div>}
+            {viewOrderModal.loading ? (
+              <div className="py-12 text-center text-[#717171] font-medium">
+                Fetching itemized order details from database...
               </div>
-            </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Customer & Order Metadata */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-[#F7F7F7] border border-[#DDDDDD]">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-[#717171] block">Customer Details</span>
+                    <p className="font-bold text-[#222222] text-sm mt-0.5">
+                      {viewOrderModal.order?.customer_name || viewOrderModal.customerName || "Registered Customer"}
+                    </p>
+                    <p className="text-[#717171]">{viewOrderModal.order?.customer_email || "No email provided"}</p>
+                    <p className="text-[#717171]">{viewOrderModal.order?.customer_phone || "No phone provided"}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-[#717171] block">Delivery &amp; Payment</span>
+                    <p className="font-semibold text-[#222222] mt-0.5">
+                      Mode: <span className="font-bold">{viewOrderModal.order?.delivery_mode || "Standard Delivery"}</span>
+                    </p>
+                    <p className="text-[#717171]">
+                      City: <strong className="text-[#222222]">{viewOrderModal.order?.city_name || "Texas Regional"}</strong>
+                    </p>
+                    <p className="text-[#717171]">
+                      Payment: <strong className="text-[#222222]">{viewOrderModal.order?.payment_method || "Card Payment"}</strong> ({viewOrderModal.order?.payment_status || "completed"})
+                    </p>
+                    <p className="text-[#717171] mt-1">
+                      Est. Arrival: <strong className="text-emerald-700 font-bold">
+                        {viewOrderModal.order?.estimated_delivery_date
+                          ? new Date(viewOrderModal.order.estimated_delivery_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                          : "5-7 Days"}
+                      </strong>
+                    </p>
+                  </div>
+                </div>
 
-            <div className="space-y-1 text-[#717171]">
-              <div>Destination: <strong className="text-[#222222]">{viewOrderModal.city || "Not provided"}</strong></div>
-              <div>Estimated Arrival: <strong className="text-[#FF385C]">{viewOrderModal.estimatedDate}</strong></div>
-            </div>
+                {/* Itemized Order Items Table */}
+                <div className="space-y-3">
+                  <h3 className="font-bold text-[#222222] text-xs uppercase tracking-wider">
+                    Itemized Order Products &amp; Variants
+                  </h3>
+                  <div className="border border-[#DDDDDD] rounded-2xl overflow-hidden bg-white">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#F7F7F7] border-b border-[#EBEBEB] text-[#717171] font-bold uppercase text-[10px]">
+                        <tr>
+                          <th className="py-3 px-4">Product &amp; Variant</th>
+                          <th className="py-3 px-3">Warehouse SKU</th>
+                          <th className="py-3 px-3 text-center">Qty</th>
+                          <th className="py-3 px-3 text-right">Unit Price</th>
+                          <th className="py-3 px-4 text-right">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#EBEBEB]">
+                        {viewOrderModal.items && viewOrderModal.items.length > 0 ? (
+                          viewOrderModal.items.map((item) => (
+                            <tr key={item.order_item_id || item.variant_id}>
+                              <td className="py-3 px-4">
+                                <div className="font-bold text-[#222222]">{item.product_name}</div>
+                                <div className="text-[11px] text-[#717171]">
+                                  {item.brand ? `${item.brand} • ` : ""}{item.variant_name || "Default Variant"}
+                                </div>
+                              </td>
+                              <td className="py-3 px-3 font-mono text-[11px] text-[#222222] font-semibold">
+                                {item.sku || "SKU-N/A"}
+                              </td>
+                              <td className="py-3 px-3 text-center font-bold text-[#222222]">
+                                {item.quantity}
+                              </td>
+                              <td className="py-3 px-3 text-right text-[#717171]">
+                                ${Number(item.unit_price).toFixed(2)}
+                              </td>
+                              <td className="py-3 px-4 text-right font-bold text-[#222222]">
+                                ${Number(item.subtotal || item.quantity * item.unit_price).toFixed(2)}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={5} className="py-6 text-center text-[#717171]">
+                              No itemized product details found for this order.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
 
-            <div className="pt-2 flex justify-end">
+                {/* Total Summary */}
+                <div className="flex justify-between items-center pt-2 border-t border-[#EBEBEB]">
+                  <span className="font-bold text-[#717171]">Order Total Amount</span>
+                  <span className="text-lg font-black text-[#222222]">
+                    ${Number(viewOrderModal.order?.total_amount || 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-[#EBEBEB] flex justify-end">
               <button
                 onClick={() => setViewOrderModal(null)}
-                className="bg-[#222222] text-white font-bold px-5 py-2.5 rounded-full"
+                className="bg-[#222222] hover:bg-black text-white font-bold px-6 py-2.5 rounded-full transition-all text-xs"
               >
-                Close View
+                Close Dispatch Sheet
               </button>
             </div>
           </div>

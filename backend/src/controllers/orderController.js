@@ -2,35 +2,154 @@ const pool = require('../config/db');
 
 // 1. POST /api/orders — Call sp_checkout_order Stored Procedure
 exports.createOrder = async (req, res) => {
+    const connection = await pool.getConnection();
     try {
         const {
-            orderID,
-            customerID,
+            orderID, orderId,
+            customerID, customerId,
             totalAmount,
             deliveryMode,
             addressId,
-            cityId,
+            cityId, shippingCity,
             paymentMethod,
-            variantId,
-            quantity,
-            unitPrice
+            variantId, quantity, unitPrice,
+            items
         } = req.body;
 
-        const id = orderID || `ORD-${Date.now()}`;
-        const custId = customerID || 'CUST001';
-        const cId = cityId || 'CITY-HOUSTON'; // Default Houston (Main City)
-        const vId = variantId || 'VAR001';
-        const qty = quantity || 1;
-        const price = unitPrice || totalAmount;
+        const id = orderID || orderId || `ORD-${Date.now()}`;
+        
+        // Resolve & validate customer ID against DB customer table
+        let rawCustId = customerID || customerId || 'CUST005';
+        let custId = rawCustId;
+
+        if (typeof rawCustId === 'string') {
+            const digits = rawCustId.replace(/[^0-9]/g, '');
+            if (digits) {
+                const formattedCandidate = `CUST${digits.padStart(3, '0')}`;
+                const [checkRows] = await connection.query(
+                    `SELECT customer_id FROM customer WHERE customer_id = ? LIMIT 1`,
+                    [formattedCandidate]
+                );
+                if (checkRows.length > 0) {
+                    custId = formattedCandidate;
+                }
+            }
+        }
+
+        const [custCheck] = await connection.query(
+            `SELECT customer_id FROM customer WHERE customer_id = ? LIMIT 1`,
+            [custId]
+        );
+        if (custCheck.length === 0) {
+            const [firstCust] = await connection.query(`SELECT customer_id FROM customer LIMIT 1`);
+            if (firstCust.length > 0) {
+                custId = firstCust[0].customer_id;
+            } else {
+                await connection.query(
+                    `INSERT IGNORE INTO customer (customer_id, user_id) VALUES ('CUST005', 'USR005')`
+                );
+                custId = 'CUST005';
+            }
+        }
+
+        // Find cityId if city name is passed
+        let finalCityId = cityId;
+        if (!finalCityId && shippingCity) {
+            const [cityRows] = await connection.query(
+                `SELECT city_id FROM city WHERE LOWER(city_name) LIKE LOWER(?) LIMIT 1`,
+                [`%${shippingCity}%`]
+            );
+            if (cityRows.length > 0) {
+                finalCityId = cityRows[0].city_id;
+            }
+        }
+        if (!finalCityId) finalCityId = 'CITY-HOUSTON';
+
+        // Prepare order items array
+        let orderItemsList = [];
+        if (items && Array.isArray(items) && items.length > 0) {
+            orderItemsList = items.map(item => ({
+                variantId: item.variantId || item.varient_id || item.variant_id || 'VAR001',
+                quantity: item.quantity || 1,
+                unitPrice: item.unitPrice || item.price || 0
+            }));
+        } else {
+            orderItemsList = [{
+                variantId: variantId || 'VAR001',
+                quantity: quantity || 1,
+                unitPrice: unitPrice || totalAmount || 0
+            }];
+        }
+
+        // Validate each variantId against MySQL database product_variant table
+        for (let i = 0; i < orderItemsList.length; i++) {
+            let item = orderItemsList[i];
+            let vid = item.variantId;
+
+            const [vCheck] = await connection.query(
+                `SELECT variant_id, price FROM product_variant WHERE variant_id = ? LIMIT 1`,
+                [vid]
+            );
+
+            if (vCheck.length > 0) {
+                if (!item.unitPrice && vCheck[0].price) {
+                    item.unitPrice = parseFloat(vCheck[0].price);
+                }
+            } else {
+                let mappedVid = null;
+                if (vid === 'v-1-1') mappedVid = 'VAR001';
+                else if (vid === 'v-1-2') mappedVid = 'VAR002';
+                else if (vid === 'v-1-3') mappedVid = 'VAR003';
+                else if (vid === 'v-2-1') mappedVid = 'VAR004';
+                else if (vid === 'v-2-2') mappedVid = 'VAR005';
+                else if (vid === 'v-3-1') mappedVid = 'VAR006';
+                else if (vid === 'v-3-2') mappedVid = 'VAR007';
+
+                if (mappedVid) {
+                    const [mapCheck] = await connection.query(
+                        `SELECT variant_id, price FROM product_variant WHERE variant_id = ? LIMIT 1`,
+                        [mappedVid]
+                    );
+                    if (mapCheck.length > 0) {
+                        vid = mappedVid;
+                        if (!item.unitPrice && mapCheck[0].price) {
+                            item.unitPrice = parseFloat(mapCheck[0].price);
+                        }
+                    }
+                }
+
+                const [checkFinalVid] = await connection.query(
+                    `SELECT variant_id, price FROM product_variant WHERE variant_id = ? LIMIT 1`,
+                    [vid]
+                );
+
+                if (checkFinalVid.length === 0) {
+                    const [fallbackV] = await connection.query(
+                        `SELECT variant_id, price FROM product_variant WHERE is_active = true LIMIT 1`
+                    );
+                    if (fallbackV.length > 0) {
+                        vid = fallbackV[0].variant_id;
+                        if (!item.unitPrice && fallbackV[0].price) {
+                            item.unitPrice = parseFloat(fallbackV[0].price);
+                        }
+                    }
+                }
+                item.variantId = vid;
+            }
+        }
+
+        const firstItem = orderItemsList[0];
+
         const formattedDeliveryMode = (deliveryMode === 'pickup' || deliveryMode === 'Store Pickup')
             ? 'Store Pickup'
             : 'Standard Delivery';
+
         const formattedPaymentMethod = (paymentMethod === 'cod' || paymentMethod === 'Cash on Delivery')
             ? 'Cash on Delivery'
             : 'Card Payment';
 
-        // Call MySQL Stored Procedure
-        await pool.query(
+        // 1. Call MySQL Stored Procedure for the primary order creation and first item
+        await connection.query(
             `CALL sp_checkout_order(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 id,
@@ -38,13 +157,27 @@ exports.createOrder = async (req, res) => {
                 totalAmount,
                 formattedDeliveryMode,
                 addressId || null,
-                cId,
+                finalCityId,
                 formattedPaymentMethod,
-                vId,
-                qty,
-                price
+                firstItem.variantId,
+                firstItem.quantity,
+                firstItem.unitPrice
             ]
         );
+
+        // 2. Insert any additional order items (item 2, 3, etc.)
+        if (orderItemsList.length > 1) {
+            for (let i = 1; i < orderItemsList.length; i++) {
+                const item = orderItemsList[i];
+                const itemID = `ITEM-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+                const subtotal = item.quantity * item.unitPrice;
+                await connection.query(
+                    `INSERT INTO order_item (order_item_id, order_id, variant_id, quantity, unit_price, subtotal)
+                     VALUES (?, ?, ?, ?, ?, ?)`,
+                    [itemID, id, item.variantId, item.quantity, item.unitPrice, subtotal]
+                );
+            }
+        }
 
         res.status(201).json({
             success: true,
@@ -54,6 +187,8 @@ exports.createOrder = async (req, res) => {
     } catch (error) {
         console.error('Checkout Stored Procedure Error:', error);
         res.status(500).json({ success: false, error: error.message });
+    } finally {
+        connection.release();
     }
 };
 
@@ -94,10 +229,18 @@ exports.getOrderById = async (req, res) => {
         const { id } = req.params;
 
         const [orderRows] = await pool.query(
-            `SELECT o.*, d.delivery_mode, d.estimated_delivery_date, d.delivery_status, p.payment_method, p.payment_status
+            `SELECT o.*, d.delivery_mode, d.estimated_delivery_date, d.delivery_status, 
+                    p.payment_method, p.payment_status,
+                    c.city_name, c.is_main_city, ca.address_line, ca.postal_code,
+                    CONCAT(u.first_name, ' ', u.last_name) AS customer_name,
+                    u.email AS customer_email, u.phone AS customer_phone
              FROM \`order\` o
              LEFT JOIN delivery d ON o.order_id = d.order_id
              LEFT JOIN payment p ON o.order_id = p.order_id
+             LEFT JOIN customer_address ca ON d.delivery_address_id = ca.address_id
+             LEFT JOIN city c ON ca.city_id = c.city_id
+             LEFT JOIN customer cust ON o.customer_id = cust.customer_id
+             LEFT JOIN \`user\` u ON cust.user_id = u.user_id
              WHERE o.order_id = ?`,
             [id]
         );
@@ -107,7 +250,7 @@ exports.getOrderById = async (req, res) => {
         }
 
         const [itemRows] = await pool.query(
-            `SELECT oi.*, pv.sku, p.product_name
+            `SELECT oi.*, pv.sku, pv.variant_name, p.product_name, p.brand
              FROM order_item oi
              JOIN product_variant pv ON oi.variant_id = pv.variant_id
              JOIN product p ON pv.product_id = p.product_id

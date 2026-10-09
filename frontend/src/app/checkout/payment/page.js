@@ -38,18 +38,20 @@ export default function CheckoutPaymentPage() {
     setProcessing(true);
 
     try {
+      const baseUrl = process.env.NEXT_PUBLIC_URL || "http://localhost:8000";
       const payload = {
-        customerId: currentUser?.id || 'CUST001',
+        customerId: currentUser?.customer_id || currentUser?.id || 'CUST005',
         totalAmount: totalDue,
         deliveryMode: checkoutData.deliveryMode || "standard",
+        shippingCity: checkoutData.shippingCity || "Houston",
         paymentMethod: checkoutData.paymentMethod === "card" ? "Card Payment" : "Cash on Delivery",
         items: cartItems.map((item) => ({
-          varient_id: item.varient_id,
-          quantity: item.quantity,
-          unitPrice: item.variant.price
+          variantId: item.variant?.variant_id || item.variant?.variantId || item.variant?.id || item.variant_id || "VAR001",
+          quantity: item.quantity || 1,
+          unitPrice: item.variant?.price !== undefined ? parseFloat(item.variant.price) : (item.unitPrice || 0)
         }))
       };
-      const response = await fetch("http://localhost:8000/api/orders", {
+      const response = await fetch(`${baseUrl}/api/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -62,15 +64,14 @@ export default function CheckoutPaymentPage() {
         setProcessing(false);
         router.push("/checkout/confirmation");
       } else {
-        alert("Cjeckput failed: " + result.error);
-        setProcessing(flase);
+        alert("Checkout failed: " + (result.error || result.message));
+        setProcessing(false);
       }
     } catch (err) {
       console.error("payment submission error", err);
-      alert("server error connectin to backend API");
+      alert("Server error connecting to backend API");
       setProcessing(false);
     }
-
   };
 
 
