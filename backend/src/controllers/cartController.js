@@ -1,16 +1,12 @@
 const { randomUUID } = require('crypto');
 const pool = require('../config/db');
 
-// One cart per customer (cart id is derived from the customer id, so it can't be duplicated).
-// A cart_item row gets a random id; the UNIQUE (cart_id, variant_id) key in the database
-// guarantees a variant can only appear once per cart, and ON DUPLICATE KEY UPDATE adds to it.
 const cartIdFor = (customerId) => `CART-${customerId}`;
 const newItemId = () => `CI-${randomUUID()}`;
 
 const MAX_QTY = 99;
 const validQty = (q) => Number.isInteger(q) && q >= 1 && q <= MAX_QTY;
 
-// Make sure the customer exists and has a cart row. Returns the cart id or null if the customer is unknown.
 const ensureCart = async (db, customerId) => {
     const [cust] = await db.query('SELECT customer_id FROM customer WHERE customer_id = ?', [customerId]);
     if (cust.length === 0) return null;
@@ -20,7 +16,6 @@ const ensureCart = async (db, customerId) => {
     return cartId;
 };
 
-// Reads the cart in the exact shape the frontend cart uses.
 const readCart = async (db, customerId) => {
     const [rows] = await db.query(
         `SELECT ci.variant_id, ci.quantity,
@@ -50,7 +45,6 @@ const readCart = async (db, customerId) => {
     }));
 };
 
-// GET /api/cart/:customerId
 exports.getCart = async (req, res) => {
     try {
         const { customerId } = req.params;
@@ -64,8 +58,6 @@ exports.getCart = async (req, res) => {
     }
 };
 
-// POST /api/cart/items  — add an item (quantity is ADDED to what is already in the cart)
-// Body: { customerId, variantId, quantity }
 exports.addItem = async (req, res) => {
     try {
         const { customerId, variantId } = req.body;
@@ -95,8 +87,6 @@ exports.addItem = async (req, res) => {
     }
 };
 
-// PUT /api/cart/items  — set an exact quantity (0 removes the item)
-// Body: { customerId, variantId, quantity }
 exports.setItemQuantity = async (req, res) => {
     try {
         const { customerId, variantId } = req.body;
@@ -122,7 +112,6 @@ exports.setItemQuantity = async (req, res) => {
     }
 };
 
-// DELETE /api/cart/:customerId/items/:variantId  — remove one item
 exports.removeItem = async (req, res) => {
     try {
         const { customerId, variantId } = req.params;
@@ -137,7 +126,6 @@ exports.removeItem = async (req, res) => {
     }
 };
 
-// DELETE /api/cart/:customerId  — empty the whole cart (used after a successful order)
 exports.clearCart = async (req, res) => {
     try {
         const { customerId } = req.params;
@@ -152,9 +140,6 @@ exports.clearCart = async (req, res) => {
     }
 };
 
-// POST /api/cart/sync  — merge a guest's cart into the customer's saved cart right after login
-// Body: { customerId, items: [{ variantId, quantity }] }
-// All-or-nothing: runs in one transaction.
 exports.syncCart = async (req, res) => {
     const { customerId, items } = req.body;
     if (!customerId || !Array.isArray(items)) {
@@ -173,7 +158,7 @@ exports.syncCart = async (req, res) => {
 
         for (const item of items) {
             const quantity = Number(item.quantity);
-            if (!item.variantId || !validQty(quantity)) continue; // skip junk rows
+            if (!item.variantId || !validQty(quantity)) continue; 
 
             await connection.query(
                 `INSERT INTO cart_item (cart_item_id, cart_id, variant_id, quantity)

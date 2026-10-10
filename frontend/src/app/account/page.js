@@ -7,8 +7,6 @@ import { useShop } from "@/context/ShopContext";
 const inputClass =
   "w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]";
 
-// Profile page: shows the customer's details and lets them change phone + delivery address
-// (GET /api/customers/:id is used on load, PUT /api/customers/:id on save).
 export default function AccountPage() {
   const { currentUser, authReady, updateUser, logoutUser } = useShop();
 
@@ -22,7 +20,6 @@ export default function AccountPage() {
 
   const customerId = currentUser?.customerId;
 
-  // Load the freshest profile from the database + the city list
   useEffect(() => {
     if (!customerId) return;
 

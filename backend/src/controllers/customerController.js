@@ -1,7 +1,6 @@
 const pool = require('../config/db');
 const { CUSTOMER_QUERY, toClientUser } = require('./authController');
 
-// GET /api/customers/:id
 exports.getCustomer = async (req, res) => {
     try {
         const [rows] = await pool.query(`${CUSTOMER_QUERY} WHERE c.customer_id = ?`, [req.params.id]);
@@ -15,15 +14,13 @@ exports.getCustomer = async (req, res) => {
     }
 };
 
-// PUT /api/customers/:id  — update phone and/or default address
-// Body (all optional): { phone, city_id, address_line, postal_code }
 exports.updateCustomer = async (req, res) => {
     const { phone, city_id, address_line, postal_code } = req.body;
     const customerId = req.params.id;
 
     const connection = await pool.getConnection();
     try {
-        await connection.beginTransaction(); // phone lives in `user`, address in `customer_address`: change both or neither
+        await connection.beginTransaction(); 
 
         const [existing] = await connection.query(
             'SELECT user_id FROM customer WHERE customer_id = ?',
@@ -49,7 +46,6 @@ exports.updateCustomer = async (req, res) => {
             );
 
             if (addr.length === 0) {
-                // No default address yet: all three fields are needed to create one
                 if (!city_id || !address_line?.trim() || !postal_code?.trim()) {
                     await connection.rollback();
                     return res.status(400).json({ success: false, error: 'City, address and postal code are all required' });
@@ -59,7 +55,6 @@ exports.updateCustomer = async (req, res) => {
                     [`ADDR-${Date.now().toString(36)}`, customerId, city_id, address_line.trim(), postal_code.trim()]
                 );
             } else {
-                // COALESCE(?, column) = keep the old value when the new one is not sent
                 await connection.query(
                     `UPDATE customer_address
                      SET city_id = COALESCE(?, city_id),
@@ -83,6 +78,6 @@ exports.updateCustomer = async (req, res) => {
         console.error('Update customer error:', error);
         res.status(500).json({ success: false, error: 'Failed to update profile' });
     } finally {
-        connection.release(); // always give the connection back to the pool
+        connection.release(); 
     }
 };

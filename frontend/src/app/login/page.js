@@ -23,7 +23,6 @@ function LoginForm() {
     setSubmitting(true);
 
     try {
-      // Ask the backend to check the email + password (POST /api/auth/login)
       const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -5,14 +5,12 @@ import { TEXAS_CITIES, STORE_PICKUP_LOCATIONS } from "@/data/mockData";
 
 const ShopContext = createContext(null);
 
-// Same base URL the other pages use (frontend/.env.local -> NEXT_PUBLIC_URL=http://localhost:8000)
 const API = process.env.NEXT_PUBLIC_URL;
 
-const USER_KEY = "brightbuy_user"; // the logged-in customer (so a page refresh doesn't log you out)
-const GUEST_CART_KEY = "brightbuy_guest_cart"; // a guest's cart (guests have no database cart)
+const USER_KEY = "brightbuy_user"; 
+const GUEST_CART_KEY = "brightbuy_guest_cart"; 
 const MAX_QTY = 99;
 
-// localStorage can throw (private mode, blocked storage), so always go through these helpers.
 const readStorage = (key) => {
   try {
     const raw = window.localStorage.getItem(key);
@@ -31,7 +29,6 @@ const writeStorage = (key, value) => {
   }
 };
 
-// Small wrapper around fetch for the backend API. Throws an Error with the server's message.
 async function api(path, options = {}) {
   const res = await fetch(`${API}/api${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -42,8 +39,6 @@ async function api(path, options = {}) {
   return data;
 }
 
-// The product page hands us the API shape (product_id, variant_name, image_url...).
-// The cart, checkout and payment pages use one simple shape, so convert once, here.
 const toCartItem = (product, variant, quantity) => ({
   product: {
     id: product.product_id ?? product.id,
@@ -61,35 +56,28 @@ const toCartItem = (product, variant, quantity) => ({
 });
 
 export function ShopProvider({ children }) {
-  // Current user: null = Guest, or object = Registered customer (returned by /api/auth/login)
   const [currentUser, setCurrentUser] = useState(null);
-  // false until we have looked in localStorage, so pages don't flash the wrong state
   const [authReady, setAuthReady] = useState(false);
 
-  // Selected Texas City
   const [selectedCity, setSelectedCity] = useState(TEXAS_CITIES[2]);
 
-  // Cart items: [{ product: {id,name,image}, variant: {id,name,sku,price,stock}, quantity }]
   const [cartItems, setCartItems] = useState([]);
 
-  // Checkout address & delivery info
   const [checkoutData, setCheckoutData] = useState({
-    deliveryMode: "standard", // 'standard' | 'pickup'
+    deliveryMode: "standard", 
     shippingCity: "Austin",
     streetAddress: "4500 Tech Ridge Blvd, Suite 200",
     zipCode: "78753",
     phoneNumber: "(512) 555-0188",
     pickupStoreId: STORE_PICKUP_LOCATIONS[0].id,
-    paymentMethod: "card", // 'card' | 'cod'
+    paymentMethod: "card", 
     cardNumber: "•••• •••• •••• 4242",
     cardExpiry: "08/28",
     cardCvc: "892",
   });
 
-  // Last completed order
   const [lastOrder, setLastOrder] = useState(null);
 
-  // Use the customer's saved profile to pre-fill the destination city and checkout address
   const applyProfile = (user) => {
     const city = TEXAS_CITIES.find((c) => c.name === user.city);
     if (city) setSelectedCity(city);
@@ -102,7 +90,6 @@ export function ShopProvider({ children }) {
     }));
   };
 
-  // Reload the saved cart from the database (used after a failed update to get back in sync)
   const refreshCart = async (user = currentUser) => {
     if (!user) return;
     try {
@@ -113,12 +100,10 @@ export function ShopProvider({ children }) {
     }
   };
 
-  // On first load: restore the logged-in user (and their saved cart) or the guest cart.
   useEffect(() => {
     const savedUser = readStorage(USER_KEY);
     const guestCart = readStorage(GUEST_CART_KEY);
 
-    // Deferred with a promise so the state updates happen after the effect itself has finished
     Promise.resolve().then(() => {
       if (savedUser?.customerId) {
         setCurrentUser(savedUser);
@@ -129,18 +114,14 @@ export function ShopProvider({ children }) {
       }
       setAuthReady(true);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, []);
 
-  // Guests: keep the cart in localStorage. Logged-in customers: the database is the source of truth.
   useEffect(() => {
     if (authReady && !currentUser) writeStorage(GUEST_CART_KEY, cartItems);
   }, [cartItems, currentUser, authReady]);
 
-  // ---- Cart operations -------------------------------------------------
-  // Each one updates the screen immediately, then tells the server (only for logged-in customers).
-  // If the server call fails, we reload the real cart from the database.
-
+  
   const addToCart = (product, variant, qty = 1) => {
     const item = toCartItem(product, variant, qty);
 
@@ -205,7 +186,6 @@ export function ShopProvider({ children }) {
     }
   };
 
-  // Called after a successful order (payment page) so the saved cart is emptied too
   const clearCart = () => {
     setCartItems([]);
     if (currentUser) {
@@ -217,10 +197,6 @@ export function ShopProvider({ children }) {
     setCheckoutData((prev) => ({ ...prev, ...fields }));
   };
 
-  // ---- Auth ------------------------------------------------------------
-
-  // Called by the login and register pages with the user object the API returned.
-  // Merges anything the guest put in the cart into the customer's saved cart.
   const loginUser = async (user) => {
     setCurrentUser(user);
     writeStorage(USER_KEY, user);
@@ -247,7 +223,6 @@ export function ShopProvider({ children }) {
     }
   };
 
-  // After the profile is edited, keep the stored user in step with the database
   const updateUser = (user) => {
     setCurrentUser(user);
     writeStorage(USER_KEY, user);
@@ -257,7 +232,7 @@ export function ShopProvider({ children }) {
   const logoutUser = () => {
     setCurrentUser(null);
     writeStorage(USER_KEY, null);
-    setCartItems([]); // the saved cart stays in the database for next login
+    setCartItems([]); 
   };
 
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
@@ -267,7 +242,7 @@ export function ShopProvider({ children }) {
     0
   );
 
-  const texasSalesTax = cartSubtotal * 0.0825; // Texas 8.25% state sales tax
+  const texasSalesTax = cartSubtotal * 0.0825; 
 
   return (
     <ShopContext.Provider

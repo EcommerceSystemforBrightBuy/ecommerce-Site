@@ -10,7 +10,6 @@ const {
 
 const cartRouter = express.Router();
 
-// Fixed paths first, then the ones with :params
 cartRouter.post('/items', addItem);
 cartRouter.put('/items', setItemQuantity);
 cartRouter.post('/sync', syncCart);

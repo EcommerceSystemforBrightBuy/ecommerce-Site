@@ -3,7 +3,6 @@ const pool = require('../config/db');
 
 const cityRouter = express.Router();
 
-// GET /api/cities — used by the register form dropdown
 cityRouter.get('/', async (req, res) => {
     try {
         const [rows] = await pool.query(

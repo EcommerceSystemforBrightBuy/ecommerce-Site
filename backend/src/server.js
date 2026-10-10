@@ -10,9 +10,9 @@ const customerRoutes = require('./routes/customerRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const cityRoutes = require('./routes/cityRoutes');
 
-const app = express(); //Stating the app with express
-app.use(cors()); //For connecting backend with frontend url
-app.use(express.json()); //enabling json format data transfer in api calls
+const app = express(); 
+app.use(cors()); 
+app.use(express.json()); 
 
 const port = process.env.PORT || 8000;
 

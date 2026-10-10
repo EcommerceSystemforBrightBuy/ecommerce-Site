@@ -28,7 +28,6 @@ function RegisterForm() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // The city list comes from the database (we need each city's id, not just its name)
   useEffect(() => {
     fetch(`${process.env.NEXT_PUBLIC_URL}/api/cities`)
       .then((res) => {
@@ -56,7 +55,6 @@ function RegisterForm() {
 
     setSubmitting(true);
     try {
-      // POST /api/auth/register -> calls the sp_register_customer stored procedure
       const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -78,7 +76,7 @@ function RegisterForm() {
         return;
       }
 
-      await loginUser(result.user); // new customers are signed in straight away
+      await loginUser(result.user); 
       router.push(redirect);
     } catch (err) {
       console.error("Register error:", err);
