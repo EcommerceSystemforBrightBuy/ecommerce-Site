@@ -1,10 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { MOCK_STAFF } from "@/data/mockAdminData";
 import {
-  Users,
   UserPlus,
   Search,
   Eye,
@@ -19,40 +17,74 @@ import {
 } from "lucide-react";
 
 export default function AdminStaffPage() {
-  const [staffList, setStaffList] = useState(MOCK_STAFF);
+  const [staffList, setStaffList] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
-
-  // Modal States
   const [viewStaff, setViewStaff] = useState(null);
   const [deleteStaff, setDeleteStaff] = useState(null);
   const [actionSuccess, setActionSuccess] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [actionError, setActionError] = useState("");
+
+  const fetchStaff = async () => {
+    try {
+      setLoading(true);
+      setActionError("");
+      const response = await fetch("http://localhost:8000/api/staff");
+      if (!response.ok) throw new Error("Failed to fetch staff");
+      const data = await response.json();
+      setStaffList(data);
+    } catch (error) {
+      console.error("Staff fetch error:", error);
+      setActionError(error.message || "Could not load staff records.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStaff();
+  }, []);
 
   const filteredStaff = staffList.filter((s) => {
-    if (roleFilter !== "all" && !s.role.toLowerCase().includes(roleFilter.toLowerCase())) {
+    if (roleFilter !== "all" && !String(s.role).toLowerCase().includes(roleFilter.toLowerCase())) {
       return false;
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const matchesName = s.name.toLowerCase().includes(q);
-      const matchesEmail = s.email.toLowerCase().includes(q);
-      const matchesHub = s.hub.toLowerCase().includes(q);
+      const matchesName = String(s.name || "").toLowerCase().includes(q);
+      const matchesEmail = String(s.email || "").toLowerCase().includes(q);
+      const matchesHub = String(s.hub || "").toLowerCase().includes(q);
       if (!matchesName && !matchesEmail && !matchesHub) return false;
     }
     return true;
   });
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!deleteStaff) return;
-    setStaffList((prev) => prev.filter((item) => item.id !== deleteStaff.id));
-    setActionSuccess(`Staff member "${deleteStaff.name}" has been removed.`);
-    setDeleteStaff(null);
-    setTimeout(() => setActionSuccess(""), 3000);
+
+    try {
+      setActionError("");
+      const response = await fetch(`http://localhost:8000/api/staff/${deleteStaff.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Delete failed");
+      }
+
+      setStaffList((prev) => prev.filter((item) => item.id !== deleteStaff.id));
+      setActionSuccess(`Staff member "${deleteStaff.name}" has been removed.`);
+      setDeleteStaff(null);
+      setTimeout(() => setActionSuccess(""), 3000);
+    } catch (error) {
+      console.error("Staff delete error:", error);
+      setActionError(error.message || "Could not remove staff member.");
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#EBEBEB] pb-5">
         <div>
           <span className="text-xs font-bold text-[#FF385C] uppercase tracking-wider">
@@ -76,7 +108,7 @@ export default function AdminStaffPage() {
       </div>
 
       {actionSuccess && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 font-bold flex items-center justify-between animate-in fade-in">
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 font-bold flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             <span>{actionSuccess}</span>
@@ -87,7 +119,12 @@ export default function AdminStaffPage() {
         </div>
       )}
 
-      {/* Filter and Search Bar */}
+      {actionError && (
+        <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 font-bold">
+          {actionError}
+        </div>
+      )}
+
       <div className="border border-[#DDDDDD] rounded-2xl p-4 bg-white flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
         <div className="relative flex-1 w-full max-w-md">
           <Search className="w-4 h-4 text-[#717171] absolute left-3.5 top-3 pointer-events-none" />
@@ -108,14 +145,13 @@ export default function AdminStaffPage() {
           >
             <option value="all">All Roles</option>
             <option value="director">Central WH Directors</option>
-            <option value="manager">Store Managers</option>
+            <option value="operations">Store Operations</option>
             <option value="logistics">Logistics Leads</option>
             <option value="inventory">Inventory Specialists</option>
           </select>
         </div>
       </div>
 
-      {/* Staff Data Table */}
       <div className="border border-[#DDDDDD] rounded-3xl bg-white overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
@@ -124,114 +160,118 @@ export default function AdminStaffPage() {
                 <th className="py-4 px-6">Staff Member</th>
                 <th className="py-4 px-4">Role Title</th>
                 <th className="py-4 px-4">Assigned Hub / Store Branch</th>
-                <th className="py-4 px-4">Phone &amp; Contact</th>
+                <th className="py-4 px-4">Contact</th>
                 <th className="py-4 px-4">Status</th>
-                <th className="py-4 px-6 text-right">Actions (View / Edit / Delete)</th>
+                <th className="py-4 px-6 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EBEBEB]">
-              {filteredStaff.map((s) => (
-                <tr key={s.id} className="hover:bg-[#F7F7F7] transition-colors">
-                  <td className="py-4 px-6">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={s.avatar}
-                        alt={s.name}
-                        className="w-10 h-10 rounded-full object-cover border border-[#DDDDDD] shrink-0"
-                      />
-                      <div>
-                        <div className="font-bold text-[#222222] text-sm">{s.name}</div>
-                        <div className="text-[11px] text-[#717171] font-mono">{s.email}</div>
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="py-4 px-4 font-bold text-[#222222]">
-                    {s.role}
-                  </td>
-
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-1.5 text-[#222222]">
-                      <Building2 className="w-3.5 h-3.5 text-[#FF385C]" />
-                      <span>{s.hub}</span>
-                    </div>
-                  </td>
-
-                  <td className="py-4 px-4 font-mono text-[#717171]">
-                    {s.phone}
-                  </td>
-
-                  <td className="py-4 px-4">
-                    <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[10px]">
-                      {s.status}
-                    </span>
-                  </td>
-
-                  <td className="py-4 px-6 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => setViewStaff(s)}
-                        className="p-2 rounded-xl hover:bg-[#EBEBEB] text-[#717171] hover:text-[#222222]"
-                        title="View Profile"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <Link
-                        href={`/admin/staff/${s.id}/edit`}
-                        className="p-2 rounded-xl hover:bg-[#EBEBEB] text-[#717171] hover:text-[#222222]"
-                        title="Edit Staff Member"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Link>
-                      <button
-                        onClick={() => setDeleteStaff(s)}
-                        className="p-2 rounded-xl hover:bg-rose-50 text-[#717171] hover:text-[#FF385C]"
-                        title="Delete Staff Member"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+              {loading ? (
+                <tr>
+                  <td colSpan="6" className="py-6 text-center text-[#717171]">
+                    Loading staff...
                   </td>
                 </tr>
-              ))}
+              ) : filteredStaff.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="py-6 text-center text-[#717171]">
+                    {actionError ? "Staff records could not be loaded." : "No staff records found."}
+                  </td>
+                </tr>
+              ) : (
+                filteredStaff.map((s) => (
+                  <tr key={s.id} className="hover:bg-[#F7F7F7] transition-colors">
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        {s.avatar ? (
+                          <img src={s.avatar} alt="" className="w-10 h-10 rounded-full object-cover border border-[#DDDDDD]" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-[#F7F7F7] border border-[#DDDDDD] flex items-center justify-center font-bold text-[#222222]">
+                            {String(s.name || "").charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-bold text-[#222222] text-sm">{s.name}</div>
+                          <div className="text-[11px] text-[#717171] font-mono">{s.email}</div>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="py-4 px-4 font-bold text-[#222222]">{s.role}</td>
+
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-1.5 text-[#222222]">
+                        <Building2 className="w-3.5 h-3.5 text-[#FF385C]" />
+                        <span>{s.hub || "HQ"}</span>
+                      </div>
+                    </td>
+
+                    <td className="py-4 px-4 font-mono text-[#717171]">{s.phone || "N/A"}</td>
+
+                    <td className="py-4 px-4">
+                      <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[10px]">
+                        {s.status || "active"}
+                      </span>
+                    </td>
+
+                    <td className="py-4 px-6 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setViewStaff(s)}
+                          className="p-2 rounded-xl hover:bg-[#EBEBEB] text-[#717171] hover:text-[#222222]"
+                          title="View Profile"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <Link
+                          href={`/admin/staff/${s.id}/edit`}
+                          className="p-2 rounded-xl hover:bg-[#EBEBEB] text-[#717171] hover:text-[#222222]"
+                          title="Edit Staff Member"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Link>
+                        <button
+                          onClick={() => setDeleteStaff(s)}
+                          className="p-2 rounded-xl hover:bg-rose-50 text-[#717171] hover:text-[#FF385C]"
+                          title="Delete Staff Member"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* VIEW STAFF MODAL */}
       {viewStaff && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 border border-[#DDDDDD] shadow-2xl animate-in zoom-in-95 duration-150 text-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 border border-[#DDDDDD] shadow-2xl text-xs">
             <div className="flex items-center justify-between border-b border-[#EBEBEB] pb-3">
-              <span className="text-xs font-bold text-[#FF385C] uppercase">
-                Staff Profile
-              </span>
-              <button
-                onClick={() => setViewStaff(null)}
-                className="p-1 rounded-full hover:bg-[#F7F7F7] text-[#717171]"
-              >
+              <span className="text-xs font-bold text-[#FF385C] uppercase">Staff Profile</span>
+              <button onClick={() => setViewStaff(null)} className="p-1 rounded-full hover:bg-[#F7F7F7] text-[#717171]">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="flex items-center gap-4">
-              <img
-                src={viewStaff.avatar}
-                alt={viewStaff.name}
-                className="w-16 h-16 rounded-full object-cover border border-[#DDDDDD]"
-              />
+              <div className="w-16 h-16 rounded-full bg-[#F7F7F7] border border-[#DDDDDD] flex items-center justify-center text-xl font-black text-[#222222]">
+                {String(viewStaff.name || "").charAt(0).toUpperCase()}
+              </div>
               <div>
                 <div className="font-black text-lg text-[#222222]">{viewStaff.name}</div>
                 <div className="text-xs font-bold text-[#FF385C]">{viewStaff.role}</div>
-                <div className="text-[11px] text-[#717171]">Joined {viewStaff.joinDate}</div>
+                <div className="text-[11px] text-[#717171]">Status: {viewStaff.status || "active"}</div>
               </div>
             </div>
 
             <div className="p-4 rounded-2xl bg-[#F7F7F7] border border-[#DDDDDD] space-y-2">
               <div className="flex items-center gap-2 text-[#222222]">
                 <Building2 className="w-4 h-4 text-[#FF385C]" />
-                <span className="font-bold">Assigned Location: {viewStaff.hub}</span>
+                <span className="font-bold">Assigned Location: {viewStaff.hub || "HQ"}</span>
               </div>
               <div className="flex items-center gap-2 text-[#717171]">
                 <Mail className="w-4 h-4" />
@@ -239,15 +279,12 @@ export default function AdminStaffPage() {
               </div>
               <div className="flex items-center gap-2 text-[#717171]">
                 <Phone className="w-4 h-4" />
-                <span>{viewStaff.phone}</span>
+                <span>{viewStaff.phone || "N/A"}</span>
               </div>
             </div>
 
             <div className="pt-2 flex justify-end">
-              <button
-                onClick={() => setViewStaff(null)}
-                className="bg-[#222222] text-white font-bold px-5 py-2.5 rounded-full"
-              >
+              <button onClick={() => setViewStaff(null)} className="bg-[#222222] text-white font-bold px-5 py-2.5 rounded-full">
                 Close View
               </button>
             </div>
@@ -255,10 +292,9 @@ export default function AdminStaffPage() {
         </div>
       )}
 
-      {/* DELETE STAFF MODAL */}
       {deleteStaff && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 border border-[#DDDDDD] shadow-2xl animate-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 border border-[#DDDDDD] shadow-2xl">
             <div className="w-12 h-12 rounded-2xl bg-rose-50 text-[#FF385C] flex items-center justify-center mx-auto">
               <AlertTriangle className="w-6 h-6" />
             </div>
@@ -271,16 +307,10 @@ export default function AdminStaffPage() {
             </div>
 
             <div className="flex items-center gap-3 pt-2">
-              <button
-                onClick={() => setDeleteStaff(null)}
-                className="flex-1 py-3 border border-[#DDDDDD] text-[#222222] font-bold text-xs rounded-xl hover:bg-[#F7F7F7]"
-              >
+              <button onClick={() => setDeleteStaff(null)} className="flex-1 py-3 border border-[#DDDDDD] text-[#222222] font-bold text-xs rounded-xl hover:bg-[#F7F7F7]">
                 Cancel
               </button>
-              <button
-                onClick={handleDeleteConfirm}
-                className="flex-1 py-3 bg-[#FF385C] hover:bg-[#E00B41] text-white font-bold text-xs rounded-xl shadow-md"
-              >
+              <button onClick={handleDeleteConfirm} className="flex-1 py-3 bg-[#FF385C] hover:bg-[#E00B41] text-white font-bold text-xs rounded-xl shadow-md">
                 Yes, Remove Staff
               </button>
             </div>
