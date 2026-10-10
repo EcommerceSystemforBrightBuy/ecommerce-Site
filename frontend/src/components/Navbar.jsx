@@ -175,15 +175,6 @@ export default function Navbar() {
                         <User className="w-4 h-4 text-[#717171]" />
                         <span>My Account Profile</span>
                       </Link>
-
-                      <Link
-                        href="/admin/orders"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-[#222222] font-bold hover:bg-[#F7F7F7] transition-colors"
-                      >
-                        <Sparkles className="w-4 h-4 text-amber-500" />
-                        <span>Admin Operations Portal</span>
-                      </Link>
                     </div>
 
                     <div className="border-t border-[#EBEBEB] p-1 mt-1">
@@ -219,16 +210,6 @@ export default function Navbar() {
                       >
                         <Sparkles className="w-4 h-4 text-[#FF385C]" />
                         <span>Sign Up</span>
-                      </Link>
-                    </div>
-
-                    <div className="border-t border-[#EBEBEB] p-1 mt-1">
-                      <Link
-                        href="/admin/orders"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-[#717171] hover:text-[#222222] font-bold hover:bg-[#F7F7F7] transition-colors"
-                      >
-                        <span>Admin Portal</span>
                       </Link>
                     </div>
                   </>

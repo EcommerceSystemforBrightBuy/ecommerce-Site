@@ -1,11 +1,24 @@
-let bcrypt;
-try {
-  bcrypt = require('bcryptjs');
-} catch {
-  bcrypt = require('bcrypt');
-}
+const bcrypt = require('bcryptjs');
 const { randomUUID } = require('crypto');
 const db = require('../config/db');
+
+const mapRoleToSystemRole = (roleStr) => {
+  if (!roleStr) return 'warehouse_staff';
+  const str = String(roleStr).trim().toLowerCase();
+  if (str === 'admin' || str.includes('director') || str.includes('admin') || str.includes('administrator')) {
+    return 'admin';
+  }
+  if (str === 'inventory_manager' || str.includes('inventory')) {
+    return 'inventory_manager';
+  }
+  if (str === 'courier_staff' || str.includes('logistics') || str.includes('courier') || str.includes('dispatch')) {
+    return 'courier_staff';
+  }
+  if (str === 'sales_analyst' || str.includes('analyst') || str.includes('sales')) {
+    return 'sales_analyst';
+  }
+  return 'warehouse_staff';
+};
 
 const getAllStaff = async (req, res) => {
   try {
@@ -27,6 +40,7 @@ const getAllStaff = async (req, res) => {
         u.user_id AS id,
         CONCAT(u.first_name, ' ', u.last_name) AS name,
         COALESCE(sp.job_title, 'Warehouse Staff') AS role,
+        u.role AS system_role,
         u.email,
         u.phone,
         COALESCE(sp.status, 'active') AS status,
@@ -34,7 +48,7 @@ const getAllStaff = async (req, res) => {
         sp.avatar_url AS avatar
       FROM \`user\` u
       LEFT JOIN staff_profile sp ON sp.user_id = u.user_id
-      WHERE u.role = 'warehouse_staff'
+      WHERE u.role IN ('warehouse_staff', 'admin', 'inventory_manager', 'courier_staff', 'sales_analyst')
       ORDER BY u.last_name ASC, u.first_name ASC
     `);
 
@@ -67,23 +81,26 @@ const createStaff = async (req, res) => {
   try {
     const passwordHash = await bcrypt.hash(password, 10);
     const userId = randomUUID();
+    const roleStr = String(role).trim();
+    const systemRole = mapRoleToSystemRole(roleStr);
+
     connection = await db.getConnection();
     await connection.beginTransaction();
     await connection.execute(
       'INSERT INTO `user` (user_id, email, password_hash, first_name, last_name, phone, role) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [
         userId,
-        email,
+        email.trim().toLowerCase(),
         passwordHash,
         firstName,
         lastName,
         phone || null,
-        'warehouse_staff',
+        systemRole,
       ]
     );
     await connection.execute(
       'INSERT INTO staff_profile (user_id, job_title, hub, status, avatar_url) VALUES (?, ?, ?, ?, ?)',
-      [userId, String(role).trim(), hub || 'BrightBuy Central Texas Hub (Austin)', 'active', avatar_url || null]
+      [userId, roleStr, hub || 'BrightBuy Central Texas Hub (Austin)', 'active', avatar_url || null]
     );
     await connection.commit();
 
@@ -94,7 +111,7 @@ const createStaff = async (req, res) => {
   } catch (error) {
     if (connection) await connection.rollback();
     console.error('[Staff Controller] Error:', error);
-    return res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({ message: error.message || 'Failed to create staff member.' });
   } finally {
     if (connection) connection.release();
   }
@@ -124,7 +141,7 @@ const updateStaff = async (req, res) => {
 
   if (email !== undefined) {
     userFields.push('email = ?');
-    userValues.push(email);
+    userValues.push(email.trim().toLowerCase());
   }
 
   if (phone !== undefined) {
@@ -146,8 +163,13 @@ const updateStaff = async (req, res) => {
   }
 
   if (role !== undefined) {
+    const roleStr = String(role).trim();
     profileFields.push('job_title = ?');
-    profileValues.push(String(role).trim());
+    profileValues.push(roleStr);
+
+    const systemRole = mapRoleToSystemRole(roleStr);
+    userFields.push('role = ?');
+    userValues.push(systemRole);
   }
 
   if (hub !== undefined) {
@@ -174,7 +196,7 @@ const updateStaff = async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
     const [existingRows] = await connection.execute(
-      "SELECT user_id FROM `user` WHERE user_id = ? AND role = 'warehouse_staff' FOR UPDATE",
+      "SELECT user_id FROM `user` WHERE user_id = ? AND role IN ('warehouse_staff', 'admin', 'inventory_manager', 'courier_staff', 'sales_analyst') FOR UPDATE",
       [id]
     );
     if (existingRows.length === 0) {
@@ -200,6 +222,7 @@ const updateStaff = async (req, res) => {
         u.user_id AS id,
         CONCAT(u.first_name, ' ', u.last_name) AS name,
         sp.job_title AS role,
+        u.role AS system_role,
         u.email,
         u.phone,
         sp.status,
@@ -218,7 +241,7 @@ const updateStaff = async (req, res) => {
   } catch (error) {
     if (connection) await connection.rollback();
     console.error('[Staff Controller] Error:', error);
-    return res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({ message: error.message || 'Internal Server Error' });
   } finally {
     if (connection) connection.release();
   }
@@ -233,7 +256,7 @@ const deleteStaff = async (req, res) => {
 
   try {
     const [result] = await db.execute(
-      "DELETE FROM `user` WHERE user_id = ? AND role = 'warehouse_staff'",
+      "DELETE FROM `user` WHERE user_id = ? AND role IN ('warehouse_staff', 'admin', 'inventory_manager', 'courier_staff', 'sales_analyst')",
       [id]
     );
 
@@ -244,7 +267,7 @@ const deleteStaff = async (req, res) => {
     return res.status(200).json({ message: 'Staff member deleted successfully.' });
   } catch (error) {
     console.error('[Staff Controller] Error:', error);
-    return res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({ message: error.message || 'Internal Server Error' });
   }
 };
 
@@ -254,3 +277,4 @@ module.exports = {
   updateStaff,
   deleteStaff,
 };
+
