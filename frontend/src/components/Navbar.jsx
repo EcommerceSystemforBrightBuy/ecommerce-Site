@@ -19,8 +19,9 @@ import {
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { totalCartCount, currentUser, selectedCity, setSelectedCity } = useShop();
+  const { totalCartCount, currentUser, selectedCity, setSelectedCity, logoutUser } = useShop();
   const [cityOpen, setCityOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-[#EBEBEB]">
@@ -123,16 +124,118 @@ export default function Navbar() {
             <span>{totalCartCount}</span>
           </Link>
 
-          {/* Airbnb User Menu Pill */}
-          <Link
-            href="/login"
-            className="flex items-center gap-2 border border-[#DDDDDD] rounded-full px-3 py-1.5 hover:shadow-md transition-all bg-white"
-          >
-            <Menu className="w-4 h-4 text-[#717171]" />
-            <div className="w-7 h-7 rounded-full bg-[#717171] text-white flex items-center justify-center font-bold text-xs">
-              {currentUser ? currentUser.name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
-            </div>
-          </Link>
+          {/* Airbnb User Menu Pill Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="flex items-center gap-2 border border-[#DDDDDD] rounded-full px-3 py-1.5 hover:shadow-md transition-all bg-white cursor-pointer"
+            >
+              <Menu className="w-4 h-4 text-[#717171]" />
+              <div className="w-7 h-7 rounded-full bg-[#FF385C] text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                {currentUser ? currentUser.name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
+              </div>
+            </button>
+
+            {userMenuOpen && (
+              <div
+                onMouseLeave={() => setUserMenuOpen(false)}
+                className="absolute right-0 mt-2 w-64 bg-white rounded-3xl shadow-2xl border border-[#DDDDDD] py-2 z-50 text-xs animate-in fade-in zoom-in-95 duration-150"
+              >
+                {currentUser ? (
+                  <>
+                    <div className="px-4 py-3 border-b border-[#EBEBEB] bg-[#F7F7F7]">
+                      <span className="block text-[10px] font-bold text-[#FF385C] uppercase tracking-wider">
+                        Signed In Customer
+                      </span>
+                      <p className="font-bold text-[#222222] text-sm truncate">{currentUser.name}</p>
+                      <p className="text-[11px] text-[#717171] truncate">{currentUser.email}</p>
+                    </div>
+
+                    <div className="p-1 space-y-0.5">
+                      <Link
+                        href="/account/orders"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-[#222222] font-bold hover:bg-[#F7F7F7] transition-colors"
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <ShoppingBag className="w-4 h-4 text-[#FF385C]" />
+                          <span>My Orders</span>
+                        </span>
+                        <span className="bg-rose-50 text-[#FF385C] text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                          Track
+                        </span>
+                      </Link>
+
+                      <Link
+                        href="/account"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-[#222222] font-bold hover:bg-[#F7F7F7] transition-colors"
+                      >
+                        <User className="w-4 h-4 text-[#717171]" />
+                        <span>My Account Profile</span>
+                      </Link>
+
+                      <Link
+                        href="/admin/orders"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-[#222222] font-bold hover:bg-[#F7F7F7] transition-colors"
+                      >
+                        <Sparkles className="w-4 h-4 text-amber-500" />
+                        <span>Admin Operations Portal</span>
+                      </Link>
+                    </div>
+
+                    <div className="border-t border-[#EBEBEB] p-1 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          logoutUser();
+                          setUserMenuOpen(false);
+                          router.push("/");
+                        }}
+                        className="w-full text-left px-3.5 py-2.5 rounded-2xl text-red-600 font-bold hover:bg-red-50 transition-colors flex items-center gap-2"
+                      >
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="p-1 space-y-0.5">
+                      <Link
+                        href="/login"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-[#222222] font-bold hover:bg-[#F7F7F7] transition-colors"
+                      >
+                        <User className="w-4 h-4 text-[#FF385C]" />
+                        <span>Log In</span>
+                      </Link>
+
+                      <Link
+                        href="/login?mode=signup"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-[#222222] font-bold hover:bg-[#F7F7F7] transition-colors"
+                      >
+                        <Sparkles className="w-4 h-4 text-[#FF385C]" />
+                        <span>Sign Up</span>
+                      </Link>
+                    </div>
+
+                    <div className="border-t border-[#EBEBEB] p-1 mt-1">
+                      <Link
+                        href="/admin/orders"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-[#717171] hover:text-[#222222] font-bold hover:bg-[#F7F7F7] transition-colors"
+                      >
+                        <span>Admin Portal</span>
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>

@@ -80,9 +80,9 @@ export default function AdminInventoryPage() {
         }),
       });
 
+      const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.message || "Failed to update stock");
+        throw new Error(result.message || result.error || "Failed to update stock");
       }
 
       setStockNotice(`SKU ${sku} inventory updated.`);

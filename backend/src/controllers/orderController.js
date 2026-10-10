@@ -138,9 +138,21 @@ exports.createOrder = async (req, res) => {
             }
         }
 
+        // Save customer address if streetAddress provided
+        let deliveryAddressId = addressId || null;
+        if (shippingCity || req.body.streetAddress) {
+            const newAddrId = `ADDR-${Date.now()}`;
+            await connection.query(
+                `INSERT INTO customer_address (address_id, customer_id, city_id, address_line, postal_code, is_default)
+                 VALUES (?, ?, ?, ?, ?, TRUE)`,
+                [newAddrId, custId, finalCityId, req.body.streetAddress || 'Shipping Address', req.body.zipCode || '78701']
+            ).catch(() => {});
+            deliveryAddressId = newAddrId;
+        }
+
         const firstItem = orderItemsList[0];
 
-        const formattedDeliveryMode = (deliveryMode === 'pickup' || deliveryMode === 'Store Pickup')
+        const formattedDeliveryMode = (deliveryMode === 'pickup' || deliveryMode === 'Store Pickup' || deliveryMode === 'Central Store Pickup')
             ? 'Store Pickup'
             : 'Standard Delivery';
 
@@ -148,7 +160,7 @@ exports.createOrder = async (req, res) => {
             ? 'Cash on Delivery'
             : 'Card Payment';
 
-        // 1. Call MySQL Stored Procedure (Order creation + 1st item - DOES NOT DEDUCT INVENTORY)
+        // 1. Call MySQL Stored Procedure (Order creation + 1st item)
         await connection.query(
             `CALL sp_checkout_order(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
@@ -156,7 +168,7 @@ exports.createOrder = async (req, res) => {
                 custId,
                 totalAmount,
                 formattedDeliveryMode,
-                addressId || null,
+                deliveryAddressId,
                 finalCityId,
                 formattedPaymentMethod,
                 firstItem.variantId,
@@ -195,11 +207,13 @@ exports.createOrder = async (req, res) => {
 // 2. GET /api/orders — Admin Dispatch Queue
 exports.getAllOrders = async (req, res) => {
     try {
-        const [rows] = await pool.query(`
+        const { customer_id } = req.query;
+        let sql = `
             SELECT o.order_id, o.customer_id, o.order_date, o.order_status, o.total_amount,
                    d.delivery_mode, d.estimated_delivery_date, d.delivery_status,
                    payment.payment_method, payment.payment_status,
                    c.city_name, c.is_main_city,
+                   ca.address_line, ca.postal_code,
                    CONCAT(u.first_name, ' ', u.last_name) AS customer_name,
                    u.email AS customer_email,
                    order_items.skus
@@ -216,8 +230,15 @@ exports.getAllOrders = async (req, res) => {
                 JOIN product_variant pv ON oi.variant_id = pv.variant_id
                 GROUP BY oi.order_id
             ) order_items ON o.order_id = order_items.order_id
-            ORDER BY o.order_date DESC
-        `);
+        `;
+        const params = [];
+        if (customer_id) {
+            sql += ` WHERE o.customer_id = ?`;
+            params.push(customer_id);
+        }
+        sql += ` ORDER BY o.order_date DESC`;
+
+        const [rows] = await pool.query(sql, params);
         res.json({ success: true, data: rows });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -254,7 +275,7 @@ exports.getOrderById = async (req, res) => {
         }
 
         const [itemRows] = await pool.query(
-            `SELECT oi.*, pv.sku, pv.variant_name, p.product_name, p.brand
+            `SELECT oi.*, pv.sku, pv.variant_name, p.product_id, p.product_name, p.brand
              FROM order_item oi
              JOIN product_variant pv ON oi.variant_id = pv.variant_id
              JOIN product p ON pv.product_id = p.product_id

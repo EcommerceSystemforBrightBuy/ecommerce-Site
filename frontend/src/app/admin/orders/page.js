@@ -26,6 +26,8 @@ const readOrders = async () => {
     customerEmail: order.customer_email || "",
     fulfillmentMode: order.delivery_mode,
     city: order.city_name || "",
+    addressLine: order.address_line || "",
+    postalCode: order.postal_code || "",
     isMainCity: Boolean(order.is_main_city),
     estimatedDate: order.estimated_delivery_date
       ? new Date(order.estimated_delivery_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
@@ -220,7 +222,13 @@ export default function AdminOrdersPage() {
                   </td>
 
                   <td className="py-4 px-4">
-                    <div className="font-bold text-[#222222]">{o.city ? `${o.city}, TX` : "Central Hub"}</div>
+                    <div className="font-bold text-[#222222]">
+                      {o.addressLine
+                        ? `${o.addressLine}, ${o.city || "TX"} ${o.postalCode || ""}`
+                        : o.city
+                        ? `${o.city}, TX`
+                        : "Central Hub Pickup"}
+                    </div>
                     <div className="text-[10px] text-[#717171]">
                       ETA: {o.estimatedDate}
                     </div>
@@ -321,7 +329,16 @@ export default function AdminOrdersPage() {
                   <div className="p-4 rounded-2xl bg-[#F7F7F7] border border-[#DDDDDD] space-y-1.5">
                     <div className="font-bold text-[#222222] text-xs uppercase text-[#717171]">Fulfillment &amp; Payment</div>
                     <div className="font-bold text-[#222222]">Mode: {viewOrderModal.order.delivery_mode}</div>
-                    <div className="text-[#717171]">Destination: <strong className="text-[#222222]">{viewOrderModal.order.city_name ? `${viewOrderModal.order.city_name}, TX` : "Central Store Pickup"}</strong></div>
+                    <div className="text-[#717171]">
+                      Address:{" "}
+                      <strong className="text-[#222222]">
+                        {viewOrderModal.order.address_line
+                          ? `${viewOrderModal.order.address_line}, ${viewOrderModal.order.city_name || "TX"} ${viewOrderModal.order.postal_code || ""}`
+                          : viewOrderModal.order.city_name
+                          ? `${viewOrderModal.order.city_name}, TX`
+                          : "Central Store Pickup"}
+                      </strong>
+                    </div>
                     <div className="text-[#717171]">Payment Method: <strong className="text-[#222222]">{viewOrderModal.order.payment_method}</strong> ({viewOrderModal.order.payment_status || "completed"})</div>
                     <div className="text-[#717171]">Delivery Status: <strong className="text-[#FF385C] uppercase">{viewOrderModal.order.delivery_status}</strong></div>
                   </div>

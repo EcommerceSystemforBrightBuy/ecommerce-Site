@@ -33,6 +33,8 @@ export default function ProductDetailPage({ params }) {
   const [addedNotice, setAddedNotice] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
+  const [reviews, setReviews] = useState([]);
+
   useEffect(() => {
      fetch(`${process.env.NEXT_PUBLIC_URL}/api/products/${unwrappedParams.id}`)
        .then(response => {
@@ -48,8 +50,15 @@ export default function ProductDetailPage({ params }) {
        .catch((err) => {
           console.error("Error fetching product:", err);
           setloading(false);
+       });
+
+     fetch(`${process.env.NEXT_PUBLIC_URL}/api/products/${unwrappedParams.id}/reviews`)
+       .then((res) => res.json())
+       .then((data) => {
+         if (Array.isArray(data)) setReviews(data);
        })
-  },[unwrappedParams.id]); //it will make the page refresh once the id changed
+       .catch((err) => console.error("Error fetching reviews:", err));
+  },[unwrappedParams.id]);
 
  if (loading) {
     return (
@@ -65,7 +74,7 @@ export default function ProductDetailPage({ params }) {
  }
 
   const activeVariant = product.variants ? product.variants[variantIndex] || product.variants[0] : null;
-  const isInStock = activeVariant?.stock > 0;
+  const isInStock = Number(activeVariant?.stock ?? 0) >= quantity;
   const estimate = calculateDeliveryEstimate(selectedCity.name, isInStock);
 
 
@@ -340,6 +349,86 @@ export default function ProductDetailPage({ params }) {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Customer Feedback & Product Reviews Section */}
+      <div className="border-t border-[#EBEBEB] pt-10 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <span className="text-[10px] font-bold text-[#FF385C] uppercase tracking-wider">
+              Verified Ratings &amp; Feedback
+            </span>
+            <h2 className="text-2xl font-black text-[#222222] mt-0.5">Customer Reviews</h2>
+          </div>
+          <div className="flex items-center gap-3 bg-[#F7F7F7] border border-[#DDDDDD] px-4 py-2.5 rounded-2xl">
+            <div className="flex items-center gap-1">
+              <Star className="w-5 h-5 fill-[#FF385C] text-[#FF385C]" />
+              <span className="text-xl font-black text-[#222222]">
+                {product.rating ? Number(product.rating).toFixed(1) : "N/A"}
+              </span>
+            </div>
+            <span className="text-[#DDDDDD]">|</span>
+            <span className="text-xs font-bold text-[#717171]">
+              {reviews.length} {reviews.length === 1 ? "Review" : "Reviews"}
+            </span>
+          </div>
+        </div>
+
+        {reviews.length === 0 ? (
+          <div className="text-center py-10 bg-[#F7F7F7] rounded-3xl border border-[#EBEBEB] p-6 space-y-2">
+            <Star className="w-8 h-8 text-[#DDDDDD] fill-[#DDDDDD] mx-auto" />
+            <p className="text-xs font-bold text-[#222222]">No customer reviews yet</p>
+            <p className="text-xs text-[#717171]">
+              Be the first verified customer to purchase this product and leave feedback from your account dashboard!
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {reviews.map((rev, idx) => (
+              <div
+                key={rev.feedback_id || idx}
+                className="bg-white border border-[#DDDDDD] rounded-3xl p-5 space-y-3 shadow-2xs hover:shadow-sm transition-shadow"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-[#FF385C] text-white flex items-center justify-center font-bold text-xs">
+                      {rev.customer_name ? rev.customer_name.charAt(0).toUpperCase() : "C"}
+                    </div>
+                    <div>
+                      <span className="font-bold text-xs text-[#222222] block leading-tight">
+                        {rev.customer_name || "Verified Customer"}
+                      </span>
+                      <span className="text-[10px] text-[#717171]">
+                        {new Date(rev.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`w-3.5 h-3.5 ${
+                          star <= rev.rating
+                            ? "fill-[#FF385C] text-[#FF385C]"
+                            : "text-[#DDDDDD] fill-[#DDDDDD]"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-xs text-[#222222] leading-relaxed font-medium">
+                  &ldquo;{rev.review || "Great product quality and fast Texas delivery!"}&rdquo;
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );

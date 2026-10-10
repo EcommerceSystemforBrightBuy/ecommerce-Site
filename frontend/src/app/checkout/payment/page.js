@@ -42,9 +42,15 @@ export default function CheckoutPaymentPage() {
 
   const [processing, setProcessing] = useState(false);
 
+  const allItemsInStock = activeItems.length > 0 && activeItems.every((item) => {
+    const stock = Number(item.variant?.stock ?? item.stock ?? 0);
+    const qty = Number(item.quantity || 1);
+    return stock >= qty;
+  });
+
   const estimate = calculateDeliveryEstimate(
     checkoutData.shippingCity,
-    true
+    allItemsInStock
   );
 
   const shippingFee =
