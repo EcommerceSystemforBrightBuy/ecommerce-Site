@@ -17,7 +17,7 @@ function LoginForm() {
 
   const DEMO_USERS = [
     {
-      id: "cust-01",
+      customer_id: "CUST001",
       name: "David Martinez",
       email: "david.m@austinmail.com",
       city: "Austin",
@@ -25,7 +25,7 @@ function LoginForm() {
       isRegistered: true,
     },
     {
-      id: "cust-02",
+      customer_id: "CUST002",
       name: "Sarah Jenkins",
       email: "sarah.j@dallascorp.com",
       city: "Dallas",
@@ -33,7 +33,7 @@ function LoginForm() {
       isRegistered: true,
     },
     {
-      id: "cust-03",
+      customer_id: "CUST003",
       name: "Marcus Sterling",
       email: "m.sterling@houstontech.org",
       city: "Houston",
@@ -45,7 +45,7 @@ function LoginForm() {
   const handleManualLogin = (e) => {
     e.preventDefault();
     const user = {
-      id: `cust-${Date.now()}`,
+      customer_id: `cust-${Date.now()}`,
       name: email.split("@")[0] || "Registered Customer",
       email: email || "customer@brightbuy.tx",
       city: "Austin",
@@ -112,7 +112,7 @@ function LoginForm() {
             <div className="space-y-2">
               {DEMO_USERS.map((user) => (
                 <button
-                  key={user.id}
+                  key={user.customer_id}
                   type="button"
                   onClick={() => handleDemoLogin(user)}
                   className="w-full p-3 border border-[#DDDDDD] rounded-2xl hover:border-[#222222] text-left transition-colors flex items-center justify-between text-xs bg-[#F7F7F7]"

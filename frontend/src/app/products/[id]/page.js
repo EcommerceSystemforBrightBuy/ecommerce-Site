@@ -130,7 +130,7 @@ export default function ProductDetailPage({ params }) {
     e.preventDefault();
     setReviewMsg({type: "", text: ""});
 
-    if (!currentUser?.customerId) {
+    if (!currentUser?.customer_id) {
       setReviewMsg({ type: "error", text: "Your account is missing a customer ID. Please sign in with a registered customer account." });
       return;
     }
@@ -150,7 +150,7 @@ export default function ProductDetailPage({ params }) {
             "Content-type" : "application/json",
           },
           body : JSON.stringify({
-            customerId : currentUser.customerId,
+            customer_id : currentUser.customer_id,
             rating : myRating,
             review : myReview
           }),

@@ -5,7 +5,7 @@ exports.createOrder = async (req, res) => {
     try {
         const {
             orderID,
-            customerID,
+            customer_id,
             totalAmount,
             deliveryMode,
             addressId,
@@ -17,7 +17,7 @@ exports.createOrder = async (req, res) => {
         } = req.body;
 
         const id = orderID || `ORD-${Date.now()}`;
-        const custId = customerID || 'CUST001';
+        const custId = customer_id || 'CUST001';
         const cId = cityId || 'CITY-HOUSTON'; // Default Houston (Main City)
         const vId = variantId || 'VAR001';
         const qty = quantity || 1;

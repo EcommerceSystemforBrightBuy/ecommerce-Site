@@ -400,6 +400,10 @@ const deleteProduct =async(req, res) =>{
         await pool.execute("Delete from product where product_id = ?", [req.params.id]);
         res.status(200).json({message : "Product successfully deleted"});
     } catch (err) {
+        if(err.code === "ER_ROW_IS_REFERENCED_2") {
+            return res.status(400).json({error : "Cannot delete product as it is referenced in other tables"});
+        }
+        
         console.error(err);
         res.status(500).json({error : "Failed to delete product"});
         
@@ -448,12 +452,12 @@ const getProductwithReview = async(req, res) => {
 
 const createReview = async(req, res) => {
     const {
-        customerId,
+        customer_id,
         rating, 
         review
     } = req.body || {};
 
-    if (customerId === undefined || customerId === null || customerId === "") {
+    if (customer_id === undefined || customer_id === null || customer_id === "") {
         return res.status(400).json({ error: "Customer ID is required" });
     }
     
@@ -477,7 +481,7 @@ const createReview = async(req, res) => {
         const[customer] = await Connection.execute(
             `Select customer_id from customer where customer_id = ?`,
             [
-                customerId
+                customer_id
             ]
         );
 
@@ -486,7 +490,7 @@ const createReview = async(req, res) => {
             return res.status(403).json({error:"Customer not found"});
         }
 
-        const customer_id = customer[0].customer_id;
+        const customerId = customer[0].customer_id;
 
         const [prod] = await Connection.execute(
             `SELECT 1 FROM product WHERE product_id = ? AND is_active = 1`,
@@ -511,7 +515,7 @@ const createReview = async(req, res) => {
                     [
                         feedback_id,
                         req.params.id,
-                        customer_id,
+                        customerId,
                         rating,
                         reviewText || null
                     ]
