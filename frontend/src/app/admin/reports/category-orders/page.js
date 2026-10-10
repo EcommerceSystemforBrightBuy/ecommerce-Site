@@ -1,12 +1,27 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { CATEGORY_ORDERS_REPORT } from "@/data/mockAdminData";
-import { ArrowLeft, PieChart, Printer } from "lucide-react";
+import { ArrowLeft, Printer } from "lucide-react";
 
 export default function CategoryOrdersReportPage() {
-  const totalOrdersSum = CATEGORY_ORDERS_REPORT.reduce((acc, c) => acc + c.totalOrders, 0);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_URL}/api/reports/category-orders`)
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((data) => { setRows(data); setError(""); })
+      .catch(() => setError("Could not load report data"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const totalOrdersSum = rows.reduce((acc, c) => acc + c.total_orders, 0);
+  const categories = rows.map((c) => ({
+    ...c,
+    percentage: totalOrdersSum ? Math.round((c.total_orders / totalOrdersSum) * 100) : 0,
+  }));
 
   return (
     <div className="space-y-6">
@@ -41,19 +56,22 @@ export default function CategoryOrdersReportPage() {
         </button>
       </div>
 
+      {loading && <p className="text-xs text-[#717171]">Loading...</p>}
+      {error && <p className="text-xs text-red-600">{error}</p>}
+
       {/* Category Progress Bars */}
       <div className="border border-[#DDDDDD] rounded-3xl p-6 bg-white space-y-4 shadow-xs">
         <h2 className="text-sm font-bold text-[#222222]">
-          Category Order Distribution ({totalOrdersSum.toLocaleString()} total orders)
+          Category Order Distribution ({totalOrdersSum.toLocaleString()} category-order links)
         </h2>
 
         <div className="space-y-4 pt-2">
-          {CATEGORY_ORDERS_REPORT.map((cat) => (
-            <div key={cat.category} className="space-y-1.5 text-xs">
+          {categories.map((cat) => (
+            <div key={cat.category_id} className="space-y-1.5 text-xs">
               <div className="flex justify-between font-bold text-[#222222]">
-                <span>{cat.category}</span>
+                <span>{cat.category_name}</span>
                 <span>
-                  {cat.totalOrders.toLocaleString()} orders ({cat.percentage}%)
+                  {cat.total_orders.toLocaleString()} orders ({cat.percentage}%)
                 </span>
               </div>
               <div className="h-4 w-full bg-[#F7F7F7] rounded-full overflow-hidden border border-[#EBEBEB]">
@@ -75,19 +93,15 @@ export default function CategoryOrdersReportPage() {
               <tr>
                 <th className="py-4 px-6">Product Category</th>
                 <th className="py-4 px-4">Total Order Count</th>
-                <th className="py-4 px-4">Share of Platform Orders (%)</th>
-                <th className="py-4 px-6 text-right">Category Gross Revenue</th>
+                <th className="py-4 px-6 text-right">Share of Category Orders (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EBEBEB]">
-              {CATEGORY_ORDERS_REPORT.map((c) => (
-                <tr key={c.category} className="hover:bg-[#F7F7F7] transition-colors font-semibold">
-                  <td className="py-4 px-6 text-[#222222] font-bold text-sm">{c.category}</td>
-                  <td className="py-4 px-4 text-[#717171] font-bold">{c.totalOrders} orders</td>
-                  <td className="py-4 px-4 text-[#FF385C] font-bold">{c.percentage}%</td>
-                  <td className="py-4 px-6 text-right font-mono font-black text-sm text-[#222222]">
-                    ${c.revenue.toLocaleString("en-US")}
-                  </td>
+              {categories.map((c) => (
+                <tr key={c.category_id} className="hover:bg-[#F7F7F7] transition-colors font-semibold">
+                  <td className="py-4 px-6 text-[#222222] font-bold text-sm">{c.category_name}</td>
+                  <td className="py-4 px-4 text-[#717171] font-bold">{c.total_orders} orders</td>
+                  <td className="py-4 px-6 text-right text-[#FF385C] font-bold">{c.percentage}%</td>
                 </tr>
               ))}
             </tbody>

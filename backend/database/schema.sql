@@ -176,7 +176,6 @@ CREATE TABLE product_variant (
     CONSTRAINT fk_variant_product FOREIGN KEY (product_id) REFERENCES product (product_id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB;
 
-CREATE INDEX idx_variant_product ON product_variant (product_id);
 CREATE INDEX idx_variant_product_default ON product_variant (product_id, is_default);
 
 -- 9. Product Variant Attributes (Color, Storage, Size, etc.)

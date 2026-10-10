@@ -194,18 +194,26 @@ export default function CartPage() {
                 reservations.
               </p>
               {currentUser ? (
-                <div className="flex items-center gap-2 text-emerald-700 text-xs font-bold pt-1">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Verified: {currentUser.name} ({currentUser.email})</span>
+                <div className="space-y-1 pt-1">
+                  <div className="flex items-center gap-2 text-emerald-700 text-xs font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Verified: {currentUser.name} ({currentUser.email})</span>
+                  </div>
+                  <p className="text-[11px] text-[#717171]">
+                    Your cart is saved to your account, so it will be here next time you sign in.
+                  </p>
                 </div>
               ) : (
-                <div className="pt-2">
+                <div className="pt-2 space-y-1">
                   <Link
                     href="/login?redirect=/checkout"
                     className="inline-block text-xs font-bold text-[#FF385C] underline hover:text-[#E00B41]"
                   >
                     Sign In or Register Account &rarr;
                   </Link>
+                  <p className="text-[11px] text-[#717171]">
+                    Items in this cart will be merged into your saved cart when you sign in.
+                  </p>
                 </div>
               )}
             </div>
