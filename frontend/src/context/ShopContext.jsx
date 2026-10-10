@@ -8,6 +8,11 @@ const ShopContext = createContext(null);
 export function ShopProvider({ children }) {
   // Current user: null = Guest, or object = Registered customer
   const [currentUser, setCurrentUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    setAuthReady(true);
+  }, []);
 
   // Selected Texas City (defaults to Austin, TX)
   const [selectedCity, setSelectedCity] = useState(TEXAS_CITIES[2]);
@@ -109,6 +114,7 @@ export function ShopProvider({ children }) {
     <ShopContext.Provider
       value={{
         currentUser,
+        authReady,
         loginUser,
         logoutUser,
         selectedCity,

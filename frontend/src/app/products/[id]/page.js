@@ -25,7 +25,7 @@ import {
 export default function ProductDetailPage({ params }) {
   const unwrappedParams = use(params);
   const router = useRouter();
-  const { selectedCity, setSelectedCity, addToCart } = useShop();
+  const { selectedCity, setSelectedCity, addToCart, currentUser, authReady } = useShop();
   const [product, setproduct] = useState(null);
   const [loading, setloading] = useState(true);
   const [variantIndex, setVariantIndex] = useState(0);
@@ -58,24 +58,33 @@ export default function ProductDetailPage({ params }) {
        })
   },[unwrappedParams.id]); //it will make the page refresh once the id changed
 
-  useEffect(() =>{
-    fetch(`${process.env.NEXT_PUBLIC_URL}/api/products/${unwrappedParams.id}/review`)
-    .then(response => {
-      
-      if(!response.ok){
-        throw new Error("Failed to fetch product reviews")
-      }
-      return response.json()
-    })
-    .then(data => {
-      setReviews(Array.isArray(data) ? data : [])
-    })
-    .catch((err) =>{
-        console.error("Error fetching product reviews", err);
-    })
-  }, [unwrappedParams.id])
+  const[myRating, setMyRating] = useState(0);
+  const[hoverRating, setHoverRating] = useState(0);
+  const[myReview, setMyReview] = useState("");
+  const[submittingReview, setSubmittingReview] = useState(false);
+  const[reviewMsg, setReviewMsg] = useState({type:"", text:""});
 
- if (loading) {
+  const fetchReviews = () =>
+    fetch(`${process.env.NEXT_PUBLIC_URL}/api/products/${unwrappedParams.id}/reviews`)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Failed to fetch product reviews");
+      }
+      return response.json();
+    })
+    .then((data) => {
+      setReviews(Array.isArray(data) ? data : []);
+    })
+    .catch((err) => {
+      console.error("Error fetching product reviews", err);
+    });
+
+  useEffect(() => {
+    fetchReviews();
+  },[unwrappedParams.id]);
+
+
+  if (loading) {
     return (
       <div role="status" className="flex items-center justify-center min-h-screen">
         <div className="h-12 w-12 animate-spin rounded-full border-2 border-[#222222]/20 border-t-[#222222]" />
@@ -97,6 +106,8 @@ export default function ProductDetailPage({ params }) {
       ? `${r.first_name} ${r.last_initial ? r.last_initial + "." : ""}`.trim()
       : "Customer";
 
+  const getReviewerInitial = (r) => r.first_name?.trim()?.[0]?.toUpperCase() ?? "C";
+
   const ratingCounts = [5, 4, 3, 2, 1].map((star) => ({
     star,
     count: reviews.filter((r) => Number(r.rating) === star).length,
@@ -113,6 +124,56 @@ export default function ProductDetailPage({ params }) {
     if(!activeVariant) return;
     addToCart(product, activeVariant, quantity);
     router.push("/checkout");
+  };
+
+  const handleSubmitReview = async(e) =>{
+    e.preventDefault();
+    setReviewMsg({type: "", text: ""});
+
+    if (!currentUser?.customerId) {
+      setReviewMsg({ type: "error", text: "Your account is missing a customer ID. Please sign in with a registered customer account." });
+      return;
+    }
+
+    if(myRating === 0){
+      setReviewMsg({ type: "error", text: "Please select a star rating" });
+      return;
+    }
+
+    setSubmittingReview(true);
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/products/${unwrappedParams.id}/reviews`,
+        {
+          method : "POST",
+          headers:{
+            "Content-type" : "application/json",
+          },
+          body : JSON.stringify({
+            customerId : currentUser.customerId,
+            rating : myRating,
+            review : myReview
+          }),
+        }
+      );
+
+      const data = await response.json();
+      if(!response.ok){
+        throw new Error(data.error || "Failed to submit review");
+      }
+
+      setReviewMsg({ type: "success", text: "Thanks! Your review was added." });
+      setMyRating(0);
+      setMyReview("");
+      await fetchReviews();
+
+      const p = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/products/${unwrappedParams.id}`);
+      if (p.ok) setproduct(await p.json());
+    } catch (err) {
+      setReviewMsg({ type: "error", text: err.message });
+    } finally {
+      setSubmittingReview(false);
+    }
   };
 
   return (
@@ -240,6 +301,75 @@ export default function ProductDetailPage({ params }) {
               })}
             </div>
 
+            {authReady && currentUser ? (
+            <form
+              onSubmit={handleSubmitReview}
+              className="p-5 rounded-2xl border border-[#EBEBEB] bg-white shadow-sm space-y-3"
+            >
+              <h4 className="font-bold text-sm text-[#222222]">Write a review</h4>
+
+              <div className="flex items-center gap-1" onMouseLeave={() => setHoverRating(0)}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    aria-label={`${n} star${n > 1 ? "s" : ""}`}
+                    onMouseEnter={() => setHoverRating(n)}
+                    onClick={() => setMyRating(n)}
+                    className="p-0.5"
+                  >
+                    <Star
+                      className={`w-6 h-6 transition-colors ${
+                        n <= (hoverRating || myRating)
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "fill-transparent text-[#DDDDDD]"
+                      }`}
+                    />
+                  </button>
+                ))}
+                {myRating > 0 && (
+                  <span className="ml-2 text-xs text-[#717171]">{myRating} / 5</span>
+                )}
+              </div>
+
+              <div>
+                <textarea
+                  rows={3}
+                  maxLength={500}
+                  value={myReview}
+                  onChange={(e) => setMyReview(e.target.value)}
+                  placeholder="Share your experience (optional)"
+                  className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
+                />
+                <div className="text-right text-[11px] text-[#717171]">{myReview.length}/500</div>
+              </div>
+
+              {reviewMsg.text && (
+                <p className={`text-xs font-semibold ${reviewMsg.type === "error" ? "text-[#FF385C]" : "text-emerald-700"}`}>
+                  {reviewMsg.text}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={submittingReview}
+                className="px-5 py-2.5 bg-[#222222] hover:bg-black text-white text-xs font-bold rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submittingReview ? "Submitting..." : "Submit Review"}
+              </button>
+            </form>
+            ) : authReady ? (
+              <div className="flex items-center justify-between gap-4 py-2 text-sm">
+                <p className="text-[#717171]">Log in to share your thoughts on this product.</p>
+                <Link
+                  href={`/login?redirect=${encodeURIComponent(`/products/${unwrappedParams.id}`)}`}
+                  className="shrink-0 rounded-full bg-[#222222] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-black"
+                >
+                  Log in
+                </Link>
+              </div>
+            ) : null}
+
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-lg text-[#222222]">
@@ -299,12 +429,17 @@ export default function ProductDetailPage({ params }) {
                   {visibleReviews.map((review) => (
                     <article key={review.feedback_id} className="rounded-2xl border border-[#E5E5E5] bg-[#F7F7F7] p-4 sm:p-5">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="space-y-1.5">
-                          <p className="font-bold text-sm text-[#222222]">{getReviewerName(review)}</p>
+                        <div className="flex items-center gap-3">
+                          <div aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white border border-[#DDDDDD] text-sm font-bold text-[#222222]">
+                            {getReviewerInitial(review)}
+                          </div>
+                          <div className="space-y-1.5">
+                            <p className="font-bold text-sm text-[#222222]">{getReviewerName(review)}</p>
                           <div className="flex items-center gap-0.5" aria-label={`${review.rating} out of 5 stars`}>
                             {[1, 2, 3, 4, 5].map((star) => (
                               <Star key={star} className={`w-3.5 h-3.5 ${star <= Number(review.rating) ? "fill-yellow-400 text-yellow-400" : "text-[#DDDDDD]"}`} />
                             ))}
+                          </div>
                           </div>
                         </div>
                         {review.created_at && (
@@ -317,7 +452,12 @@ export default function ProductDetailPage({ params }) {
                     </article>
                   ))}
                   {reviews.length > REVIEWS_PREVIEW && (
-                    <button type="button" onClick={() => setShowAllReviews((show) => !show)} className="text-sm font-semibold underline text-[#222222]">
+                    <button
+                      type="button"
+                      aria-expanded={showAllReviews}
+                      onClick={() => setShowAllReviews((show) => !show)}
+                      className="w-full rounded-xl border border-[#DDDDDD] bg-white px-4 py-3 text-sm font-semibold text-[#222222] transition-colors hover:border-[#222222] hover:bg-[#F7F7F7]"
+                    >
                       {showAllReviews ? "Show fewer reviews" : `Show all ${reviews.length} reviews`}
                     </button>
                   )}

@@ -156,45 +156,15 @@ const getProductByID = async(req, res) =>{
     }
 }
 
-const getProductwithReview = async(req, res) => {
-    
-    try {
-        const [reviews] = await pool.execute(
-            `Select f.feedback_id, f.rating, f.review, f.created_at,
-                u.first_name, Left(u.last_name,1) as last_initial
-             from product_feedback f
-             right join customer c on c.customer_id = f.customer_id
-             right join user u on u.user_id = c.user_id
-             where product_id = ?
-             order by f.created_at`,
-            [
-                req.params.id
-            ]
-        )
-    
-        if(reviews.length === 0){
-            res.status(200).json({message: "No reviews yet"})
-            return;
-        }
-
-        res.status(200).json(reviews);
-
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({error : "Failed to fetch product reviews"});
-    }
-
-}
-
 const createProduct = async(req, res) => {
     const {
-           product_name,
-           brand,
-           badge,
-           categories,
-           image_url,
-           description,
-           variants,
+        product_name,
+        brand,
+        badge,
+        categories,
+        image_url,
+        description,
+        variants,
     } = req.body;
 
     if(!product_name || !categories || categories.length === 0){
@@ -228,7 +198,7 @@ const createProduct = async(req, res) => {
         
         //Inserting category
         await insertCategories(Connection, product_id, categories);
-
+        
         //Inserting variants and attributes
         if(variants && Array.isArray(variants)){
             for(const[index,v] of variants.entries()){
@@ -237,7 +207,7 @@ const createProduct = async(req, res) => {
         }        
         
         await Connection.commit(); //Committing the transaction if all the queries are successful
-
+        
         res.status(201).json({message : "Product created successfully",product_id});
     }catch(e){
         console.error(e);
@@ -258,13 +228,13 @@ const updateProduct = async(req, res) =>{
         up_product_description,
         up_variants
     } = req.body;
-
+    
     const Connection = await pool.getConnection();
     
     try{
         await Connection.beginTransaction();
         const [product] = await Connection.execute("Select * from product where product_id = ?", [req.params.id]); 
-
+        
         if(product.length === 0){
             await Connection.rollback();
             return res.status(404).json({error : "Product not found"});
@@ -281,24 +251,24 @@ const updateProduct = async(req, res) =>{
         if(up_product_badge !== undefined){
             product[0].badge = up_product_badge
         }
-
+        
         if(up_product_categories !== undefined){
             if(!Array.isArray(up_product_categories) || up_product_categories.length === 0){
                 throw new Error("At least one category is required");
             }
-
+            
             await Connection.execute(
                 "Delete from product_category where product_id = ?",
                 [req.params.id]
             )
-
+            
             await insertCategories(Connection, req.params.id, up_product_categories);
         }
         
         if(up_product_image !== undefined){
             product[0].image_url = up_product_image
         }
-
+        
         if(up_product_description !== undefined){
             product[0].description = up_product_description
         }
@@ -314,7 +284,7 @@ const updateProduct = async(req, res) =>{
                 req.params.id
             ]
         )
-
+        
         if(up_variants && Array.isArray(up_variants)){
             for(const v of up_variants){
                 if(v.variant_id && v.is_active === false){
@@ -325,21 +295,21 @@ const updateProduct = async(req, res) =>{
                             v.variant_id
                         ]
                     )
-
+                    
                     if(result.affectedRows === 0){
                         throw new Error(`Variant with id ${v.variant_id} not found for product ${req.params.id}`);
                     }
-
+                    
                     continue;
                 }
-
+                
                 if(!v.variant_id){  //new variant
                     await insertVariant(Connection, req.params.id, v, false);
                     continue;
                 }
-
+                
                 const {price, stock} = validateVariant(v);
-
+                
                 const [row] = await Connection.execute(
                     "Update product_variant set variant_name = ?, price = ?, sku = ? where product_id = ? and variant_id = ?",
                     [
@@ -350,11 +320,11 @@ const updateProduct = async(req, res) =>{
                         v.variant_id
                     ]
                 );
-
+                
                 if(row.affectedRows === 0){
                     throw new Error(`Variant with id ${v.variant_id} not found for product ${req.params.id}`);
                 }
-
+                
                 await Connection.execute(
                     "Update inventory set quantity_on_hand = ? where variant_id = ?",
                     [
@@ -362,7 +332,7 @@ const updateProduct = async(req, res) =>{
                         v.variant_id
                     ]
                 );
-
+                
                 await Connection.execute(
                     "Delete from product_attribute where variant_id = ?",
                     [
@@ -372,25 +342,25 @@ const updateProduct = async(req, res) =>{
                 await insertAttributes(Connection, v.variant_id, v.attributes);
             }
         }
-
+        
         const [active_variants] = await Connection.execute(
             "Select count(variant_id) as active_variant_count from product_variant where product_id = ? and is_active = true",
             [
                 req.params.id
             ]
         );
-
+        
         if(active_variants[0].active_variant_count === 0){
             throw new Error("At least one active variant is required for the product");
         }
-
+        
         const [default_variant] = await Connection.execute(
             "Select variant_id from product_variant where product_id = ? and is_default = true and is_active = true",
             [
                 req.params.id
             ]
         );
-
+        
         if(default_variant.length === 0){
             await Connection.execute(
                 "Update product_variant set is_default = true where product_id = ? and is_active = true order by variant_id limit 1",
@@ -399,20 +369,20 @@ const updateProduct = async(req, res) =>{
                 ]
             );
         }
-
+        
         await Connection.commit();
         res.status(200).json({message :"Product updated successfully"});
     }catch(err){
         console.error(err);
         await Connection.rollback();
-
+        
         if(err.code === "ER_DUP_ENTRY"){
             res.status(400).json({error : "SKU already exists"});
             return;
         }
-
+        
         res.status(500).json({error : err.message || "Failed to update product"});
-
+        
     } finally {
         await Connection.release();
     }
@@ -422,17 +392,17 @@ const deleteProduct =async(req, res) =>{
     try {
         //Checking if the product is in the db
         const [dummy_product] = await pool.execute("Select * from product where product_id = ?", [req.params.id]); 
-
+        
         if(dummy_product.length === 0){
             return res.status(404).json({error : "Product not found"});
         }  
-
+        
         await pool.execute("Delete from product where product_id = ?", [req.params.id]);
         res.status(200).json({message : "Product successfully deleted"});
     } catch (err) {
         console.error(err);
         res.status(500).json({error : "Failed to delete product"});
-
+        
         //We don`t have to catch foreign key delete errors because we handle that in schema.sql by cascade delete.
     }
 }
@@ -444,22 +414,148 @@ const getAllCategories = async (req, res)=>{
         if(category.length === 0){
             return res.status(404).json({"message": "Categories not Found..!"});
         }
-
+        
         res.status(200).json(category);
     } catch (err) {
         console.error(err);
         res.status(500).json({error : "Failed to fetch categories"});
     }
-
+    
 };
+
+const getProductwithReview = async(req, res) => {
+    
+    try {
+        const [reviews] = await pool.execute(
+            `Select f.feedback_id, f.rating, f.review, f.created_at,
+                u.first_name, Left(u.last_name,1) as last_initial
+             from product_feedback f
+             join customer c on c.customer_id = f.customer_id
+             join user u on u.user_id = c.user_id
+             where product_id = ?
+             order by f.created_at desc`,
+            [
+                req.params.id
+            ]
+        )
+    
+        res.status(200).json(reviews);
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({error : "Failed to fetch product reviews"});
+    }
+}
+
+const createReview = async(req, res) => {
+    const {
+        customerId,
+        rating, 
+        review
+    } = req.body || {};
+
+    if (customerId === undefined || customerId === null || customerId === "") {
+        return res.status(400).json({ error: "Customer ID is required" });
+    }
+    
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+        return res.status(400).json({ error: "Rating must be a whole number between 1 and 5" });
+    }
+    
+    if (typeof review !== "string") {
+        return res.status(400).json({ error: "Review must be string" });
+    }
+    const reviewText = review.trim();
+    if (reviewText.length > 500) {
+        return res.status(400).json({ error: "Review must be 500 characters or less" });
+    }
+    
+    
+    const Connection = await pool.getConnection();
+    try {
+        await Connection.beginTransaction();
+
+        const[customer] = await Connection.execute(
+            `Select customer_id from customer where customer_id = ?`,
+            [
+                customerId
+            ]
+        );
+
+        if(customer.length === 0){
+            await Connection.rollback();
+            return res.status(403).json({error:"Customer not found"});
+        }
+
+        const customer_id = customer[0].customer_id;
+
+        const [prod] = await Connection.execute(
+            `SELECT 1 FROM product WHERE product_id = ? AND is_active = 1`,
+            [
+                req.params.id
+            ]
+        );
+
+        if (prod.length === 0) {
+            await Connection.rollback();
+            return res.status(404).json({ error: "Product not found" });
+        }
+
+        let feedback_id;
+        // Try three times incase of failure
+        for(let attempt = 0; attempt < 3; attempt++){
+            try {
+                feedback_id = await nextId(Connection, "product_feedback", "feedback_id", "FB",3);
+                
+                await Connection.execute(
+                    `Insert into product_feedback (feedback_id, product_id, customer_id, rating, review) values (?,?,?,?,?)`,
+                    [
+                        feedback_id,
+                        req.params.id,
+                        customer_id,
+                        rating,
+                        reviewText || null
+                    ]
+                )
+                break;
+            } catch (e) {
+                const idClash = e.code === "ER_DUP_ENTRY" && e.sqlMessage?.includes("PRIMARY");
+                if(idClash && attempt < 2) continue;
+                throw e;
+            }
+        } 
+
+        await Connection.commit();
+        res.status(201).json({"message":"Product reviews added successfully"})
+    } catch (e) {
+        await Connection.rollback();
+
+        if (e.code === "ER_DUP_ENTRY") {
+            if(e.sqlMessage?.includes("uq_feedback")){
+                return res.status(409).json({ error: "You have already reviewed this product" });
+            }
+
+            return res.status(503).json({error:"Please try again"});
+        }
+
+        if (e.code === "ER_NO_REFERENCED_ROW_2") {
+        return res.status(400).json({ error: "Invalid customer" });
+        }
+
+        console.error(e);
+        res.status(500).json({ error: "Failed to add review" });
+    }finally{
+        Connection.release();
+    }
+}
 
 module.exports = {
     getAllProducts,
     getAllProductswithVariants,
     getProductByID,
-    getProductwithReview,
     createProduct,
     updateProduct,
     deleteProduct,
-    getAllCategories
+    getAllCategories,
+    getProductwithReview,
+    createReview
 };
