@@ -1,26 +1,79 @@
 "use client";
 
-import React, { useState, use } from "react";
+import React, { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MOCK_STAFF } from "@/data/mockAdminData";
 import { ArrowLeft, Save } from "lucide-react";
 
 export default function EditStaffPage({ params }) {
   const unwrappedParams = use(params);
   const router = useRouter();
 
-  const staff = MOCK_STAFF.find((s) => s.id === unwrappedParams.id) || MOCK_STAFF[0];
+  const [staff, setStaff] = useState(null);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("");
+  const [phone, setPhone] = useState("");
+  const [hub, setHub] = useState("");
+  const [avatar, setAvatar] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  const [name, setName] = useState(staff.name);
-  const [email, setEmail] = useState(staff.email);
-  const [role, setRole] = useState(staff.role);
-  const [phone, setPhone] = useState(staff.phone);
+  useEffect(() => {
+    const fetchStaff = async () => {
+      try {
+        const response = await fetch("http://localhost:8000/api/staff");
+        if (!response.ok) throw new Error("Could not load staff record.");
+        const staffList = await response.json();
+        const record = staffList.find((item) => item.id === unwrappedParams.id);
+        if (!record) throw new Error("Staff member not found.");
+        setStaff(record);
+        setName(record.name || "");
+        setEmail(record.email || "");
+        setRole(record.role || "");
+        setPhone(record.phone || "");
+        setHub(record.hub || "");
+        setAvatar(record.avatar || "");
+      } catch (fetchError) {
+        console.error("Staff fetch error:", fetchError);
+        setError(fetchError.message || "Could not load staff record.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleSave = (e) => {
+    fetchStaff();
+  }, [unwrappedParams.id]);
+
+  const handleSave = async (e) => {
     e.preventDefault();
-    router.push("/admin/staff");
+    setError("");
+    setSubmitting(true);
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/staff/${unwrappedParams.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, role, phone, hub, avatar_url: avatar, password }),
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.message || "Could not update staff member.");
+      }
+
+      router.push("/admin/staff");
+    } catch (saveError) {
+      console.error("Staff update error:", saveError);
+      setError(saveError.message || "Could not update staff member.");
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (loading) return <p className="text-sm text-[#717171]">Loading staff record...</p>;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -37,7 +90,7 @@ export default function EditStaffPage({ params }) {
           Personnel Record Update
         </span>
         <h1 className="text-2xl font-black text-[#222222] mt-0.5">
-          Edit Staff: {staff.name}
+          Edit Staff: {staff ? staff.name : ""}
         </h1>
       </div>
 
@@ -100,7 +153,46 @@ export default function EditStaffPage({ params }) {
               className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
             />
           </div>
+
+          <div>
+            <label className="block text-[#222222] font-bold mb-1">Assigned Central Hub</label>
+            <input
+              type="text"
+              required
+              value={hub}
+              onChange={(e) => setHub(e.target.value)}
+              className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[#222222] font-bold mb-1">Avatar Image URL</label>
+            <input
+              type="url"
+              value={avatar}
+              onChange={(e) => setAvatar(e.target.value)}
+              className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[#222222] font-bold mb-1">New Password (optional)</label>
+            <input
+              type="password"
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
+            />
+          </div>
         </div>
+
+        {error && (
+          <p role="alert" className="text-xs font-bold text-rose-700">
+            {error}
+          </p>
+        )}
 
         <div className="pt-4 flex justify-end gap-3 border-t border-[#EBEBEB]">
           <Link
@@ -111,10 +203,11 @@ export default function EditStaffPage({ params }) {
           </Link>
           <button
             type="submit"
-            className="py-3 px-8 bg-[#FF385C] hover:bg-[#E00B41] text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-2"
+            disabled={submitting || !staff}
+            className="py-3 px-8 bg-[#FF385C] hover:bg-[#E00B41] text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-2 disabled:opacity-60"
           >
             <Save className="w-4 h-4" />
-            <span>Update Staff Record</span>
+            <span>{submitting ? "Saving..." : "Update Staff Record"}</span>
           </button>
         </div>
       </form>
