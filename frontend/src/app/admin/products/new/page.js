@@ -130,7 +130,10 @@ export default function AddProductPage() {
             categories : selectedCategories,
             image_url : image,
             description : description,
-            variants : variants
+            variants: variants.map((v, idx) => ({
+              ...v,
+              sku: v.sku || `SKU-${Date.now().toString().slice(-6)}-${idx + 1}`
+            }))
           })
         }
       )
@@ -343,15 +346,15 @@ export default function AddProductPage() {
 
                   <div>
                     <label className="block text-[#717171] text-[11px] mb-1 font-bold">
-                      Warehouse SKU
+                      Warehouse SKU (Auto-generated)
                     </label>
                     <input
                       type="text"
-                      required
-                      value={v.sku}
-                      onChange={(e) => updateVariant(v.temp_id, "sku", e.target.value)}
-                      placeholder="SKU-PRD001-01"
-                      className="w-full bg-white border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#222222]"
+                      readOnly
+                      disabled
+                      value={v.sku || `SKU-${Date.now().toString().slice(-6)}-${idx + 1}`}
+                      placeholder="Auto-generated SKU"
+                      className="w-full bg-[#EBEBEB] border border-[#DDDDDD] rounded-xl p-2.5 text-xs font-mono text-[#717171] cursor-not-allowed font-bold"
                     />
                   </div>
 

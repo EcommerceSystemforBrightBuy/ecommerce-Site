@@ -28,8 +28,8 @@ export default function CartPage() {
     selectedCity,
   } = useShop();
 
-  const total = cartSubtotal + texasSalesTax;
-  const hasOutOfStock = cartItems.some((i) => i.variant.stock <= 0);
+  const total = cartSubtotal;
+  const hasOutOfStock = cartItems.some((i) => (i.variant?.stock ?? 0) <= 0);
 
   const handleProceed = () => {
     if (!currentUser) {
@@ -223,10 +223,6 @@ export default function CartPage() {
               <div className="flex justify-between text-[#717171]">
                 <span>Subtotal</span>
                 <span className="font-semibold text-[#222222]">${cartSubtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-[#717171]">
-                <span>Texas State Sales Tax (8.25%)</span>
-                <span className="font-semibold text-[#222222]">${texasSalesTax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-[#717171]">
                 <span>Delivery or Store Pickup</span>

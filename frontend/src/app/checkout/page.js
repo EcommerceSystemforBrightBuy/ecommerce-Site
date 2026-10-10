@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useShop } from "@/context/ShopContext";
@@ -24,17 +24,25 @@ export default function CheckoutAddressPage() {
   const router = useRouter();
   const {
     cartItems,
+    buyNowItem,
     currentUser,
     checkoutData,
     updateCheckoutData,
     cartSubtotal,
   } = useShop();
 
+  const checkoutItems = buyNowItem ? [buyNowItem] : cartItems;
   const singleStore = STORE_PICKUP_LOCATIONS[0];
-  const hasOutOfStock = cartItems.some((i) => i.variant.stock <= 0);
+
+  const allItemsInStock = checkoutItems.length > 0 && checkoutItems.every((item) => {
+    const stock = Number(item.variant?.stock ?? item.stock ?? 0);
+    const qty = Number(item.quantity || 1);
+    return stock >= qty;
+  });
+
   const estimate = calculateDeliveryEstimate(
     checkoutData.shippingCity,
-    !hasOutOfStock
+    allItemsInStock
   );
 
   const handleContinue = (e) => {
@@ -46,7 +54,7 @@ export default function CheckoutAddressPage() {
     router.push("/checkout/payment");
   };
 
-  if (cartItems.length === 0) {
+  if (checkoutItems.length === 0) {
     return (
       <main className="max-w-4xl mx-auto px-4 py-16 text-center space-y-4">
         <h2 className="text-xl font-bold text-[#222222]">No items to checkout</h2>
@@ -60,6 +68,26 @@ export default function CheckoutAddressPage() {
       </main>
     );
   }
+
+  const [useDifferentAddress, setUseDifferentAddress] = useState(false);
+
+  const handleToggleDifferentAddress = (checked) => {
+    setUseDifferentAddress(checked);
+    if (checked) {
+      updateCheckoutData({
+        streetAddress: "",
+        zipCode: "",
+        phoneNumber: currentUser?.phone || "",
+      });
+    } else if (currentUser) {
+      updateCheckoutData({
+        shippingCity: currentUser.city || "Austin",
+        streetAddress: currentUser.addressLine || "4500 Tech Ridge Blvd, Suite 200",
+        zipCode: currentUser.postalCode || "78753",
+        phoneNumber: currentUser.phone || "(512) 555-0188",
+      });
+    }
+  };
 
   return (
     <main className="max-w-4xl mx-auto px-4 sm:px-8 py-10 space-y-8">
@@ -102,11 +130,10 @@ export default function CheckoutAddressPage() {
             {/* Standard Delivery */}
             <div
               onClick={() => updateCheckoutData({ deliveryMode: "standard" })}
-              className={`p-5 rounded-2xl border-2 cursor-pointer transition-all space-y-2 bg-white ${
-                checkoutData.deliveryMode === "standard"
+              className={`p-5 rounded-2xl border-2 cursor-pointer transition-all space-y-2 bg-white ${checkoutData.deliveryMode === "standard"
                   ? "border-[#222222] ring-1 ring-[#222222] shadow-sm"
                   : "border-[#DDDDDD] hover:border-[#222222]"
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 font-bold text-[#222222] text-sm">
@@ -126,11 +153,10 @@ export default function CheckoutAddressPage() {
             {/* Store Pickup */}
             <div
               onClick={() => updateCheckoutData({ deliveryMode: "pickup" })}
-              className={`p-5 rounded-2xl border-2 cursor-pointer transition-all space-y-2 bg-white ${
-                checkoutData.deliveryMode === "pickup"
+              className={`p-5 rounded-2xl border-2 cursor-pointer transition-all space-y-2 bg-white ${checkoutData.deliveryMode === "pickup"
                   ? "border-[#222222] ring-1 ring-[#222222] shadow-sm"
                   : "border-[#DDDDDD] hover:border-[#222222]"
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 font-bold text-[#222222] text-sm">
@@ -146,12 +172,25 @@ export default function CheckoutAddressPage() {
           </div>
         </div>
 
-        {/* Step 2: Address Input or Single Store Display */}
+        {/* Step 2: Address Input with Custom Address Checkbox */}
         {checkoutData.deliveryMode === "standard" ? (
           <div className="border border-[#DDDDDD] rounded-2xl p-6 space-y-4 text-xs bg-white">
-            <div className="font-bold text-[#222222] text-sm flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-[#FF385C]" />
-              <span>Texas Delivery Address</span>
+            <div className="flex items-center justify-between border-b border-[#EBEBEB] pb-3">
+              <div className="font-bold text-[#222222] text-sm flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-[#FF385C]" />
+                <span>Texas Delivery Address</span>
+              </div>
+
+              {/* Checkbox to use custom alternate address */}
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#FF385C] bg-[#F7F7F7] px-3 py-1.5 rounded-full border border-[#DDDDDD]">
+                <input
+                  type="checkbox"
+                  checked={useDifferentAddress}
+                  onChange={(e) => handleToggleDifferentAddress(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded text-[#FF385C] focus:ring-0"
+                />
+                <span>Use a different shipping address</span>
+              </label>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -181,19 +220,21 @@ export default function CheckoutAddressPage() {
                   required
                   value={checkoutData.phoneNumber}
                   onChange={(e) => updateCheckoutData({ phoneNumber: e.target.value })}
+                  placeholder="(512) 555-0100"
                   className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
                 />
               </div>
 
               <div className="sm:col-span-2">
                 <label className="block text-[#222222] font-bold mb-1 text-xs">
-                  Street Address
+                  Street Address {useDifferentAddress ? "(New Address)" : ""}
                 </label>
                 <input
                   type="text"
                   required
                   value={checkoutData.streetAddress}
                   onChange={(e) => updateCheckoutData({ streetAddress: e.target.value })}
+                  placeholder="e.g. 100 Congress Ave, Suite 500"
                   className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
                 />
               </div>
@@ -207,6 +248,7 @@ export default function CheckoutAddressPage() {
                   required
                   value={checkoutData.zipCode}
                   onChange={(e) => updateCheckoutData({ zipCode: e.target.value })}
+                  placeholder="78701"
                   className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs font-mono text-[#222222]"
                 />
               </div>
@@ -219,26 +261,24 @@ export default function CheckoutAddressPage() {
                   type="text"
                   disabled
                   value="Texas (TX)"
-                  className="w-full bg-[#EBEBEB] border border-[#DDDDDD] rounded-xl p-3 text-xs font-bold text-[#717171]"
+                  className="w-full bg-[#EBEBEB] border border-[#DDDDDD] rounded-xl p-3 text-xs font-bold text-[#717171] cursor-not-allowed"
                 />
               </div>
             </div>
 
-            {/* Live Calculation Info */}
-            <div className="pt-3 border-t border-[#EBEBEB] flex flex-col sm:flex-row sm:items-center justify-between text-xs text-[#717171] gap-2">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-[#222222]" />
-                <span>
-                  Transit Tier:{" "}
-                  <strong className="text-[#222222]">
-                    {estimate.isMain ? "5-Day Metro City" : "7-Day Regional Transit"}
-                  </strong>
-                  {estimate.stockDelayAdded && " + 3 days out-of-stock buffer"}
-                </span>
+            {/* Delivery Estimate Box based on stock availability and city */}
+            <div className="p-4 rounded-2xl bg-[#F7F7F7] border border-[#DDDDDD] space-y-1.5 mt-4">
+              <div className="flex items-center justify-between font-bold text-[#222222]">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-[#FF385C]" />
+                  <span>Estimated Delivery Arrival:</span>
+                </div>
+                <span className="text-[#FF385C] font-black text-sm">{estimate.days} Days ({estimate.estimatedDate})</span>
               </div>
-              <div className="font-bold text-[#FF385C]">
-                Arrival Estimate: {estimate.estimatedDate} ({estimate.days} Days Total)
-              </div>
+              <p className="text-[#717171] text-[11px] leading-relaxed">
+                • {estimate.isMain ? "Main Metro City (5 days base)" : "Regional Texas City (7 days base)"}
+                {estimate.stockDelayAdded && " + 3 days out-of-stock buffer"}
+              </p>
             </div>
           </div>
         ) : (

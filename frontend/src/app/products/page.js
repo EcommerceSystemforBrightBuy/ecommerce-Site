@@ -101,10 +101,10 @@ export default function ProductsSearchPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#EBEBEB] pb-6">
           <div>
             <h1 className="text-2xl font-black text-[#222222]">
-              Search Catalog &amp; Texas Stock
+              Search Product Catalog
             </h1>
             <p className="text-xs text-[#717171] mt-0.5">
-              Showing real-time stock levels for {selectedCity.name}, Texas.
+              Explore electronics, smart devices, and accessories in BrightBuy.
             </p>
           </div>
 
@@ -150,16 +150,6 @@ export default function ProductsSearchPage() {
           
           {/* Auxiliary Options */}
           <div className="flex items-center gap-3 shrink-0">
-            <label className="flex items-center gap-2 cursor-pointer text-[#222222] font-semibold border border-[#DDDDDD] px-3.5 py-2 rounded-full hover:border-[#222222]">
-              <input
-                type="checkbox"
-                checked={inStockOnly}
-                onChange={(e) => setInStockOnly(e.target.checked)}
-                className="w-3.5 h-3.5 rounded text-[#FF385C] focus:ring-0"
-              />
-              <span>In-Stock Only</span>
-            </label>
-
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
@@ -176,7 +166,7 @@ export default function ProductsSearchPage() {
 
       {/* Results Count */}
       <div className="text-xs font-semibold text-[#717171]">
-        {filtered.length} products available in Central Texas Warehouse
+        {filtered.length} products available
       </div>
 
       {/* Product Cards Grid */}

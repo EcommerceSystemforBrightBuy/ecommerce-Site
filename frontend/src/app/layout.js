@@ -1,8 +1,7 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ShopProvider } from "@/context/ShopContext";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import AppLayoutWrapper from "@/components/AppLayoutWrapper";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -21,9 +20,7 @@ export default function RootLayout({ children }) {
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans bg-white text-neutral-950">
         <ShopProvider>
-          <Navbar />
-          <div className="flex-1">{children}</div>
-          <Footer />
+          <AppLayoutWrapper>{children}</AppLayoutWrapper>
         </ShopProvider>
       </body>
     </html>

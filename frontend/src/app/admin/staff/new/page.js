@@ -3,22 +3,52 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, UserPlus } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 export default function OnboardStaffPage() {
   const router = useRouter();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState("Store Operations Lead");
   const [phone, setPhone] = useState("");
-  const [avatar, setAvatar] = useState(
-    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"
-  );
+  const [avatar, setAvatar] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    router.push("/admin/staff");
+    setError("");
+    setSubmitting(true);
+
+    try {
+      const response = await fetch("http://localhost:8000/api/staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          role,
+          phone,
+          hub: "BrightBuy Central Texas Hub (Austin)",
+          avatar_url: avatar,
+        }),
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.message || "Could not create staff member.");
+      }
+
+      router.push("/admin/staff");
+    } catch (submitError) {
+      console.error("Staff creation error:", submitError);
+      setError(submitError.message || "Could not create staff member.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -70,6 +100,19 @@ export default function OnboardStaffPage() {
           </div>
 
           <div>
+            <label className="block text-[#222222] font-bold mb-1">Temporary Password</label>
+            <input
+              type="password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
+            />
+          </div>
+
+          <div>
             <label className="block text-[#222222] font-bold mb-1">Role Title</label>
             <select
               value={role}
@@ -110,13 +153,18 @@ export default function OnboardStaffPage() {
             <label className="block text-[#222222] font-bold mb-1">Avatar Image URL</label>
             <input
               type="text"
-              required
               value={avatar}
               onChange={(e) => setAvatar(e.target.value)}
               className="w-full bg-[#F7F7F7] border border-[#DDDDDD] rounded-xl p-3 text-xs text-[#222222]"
             />
           </div>
         </div>
+
+        {error && (
+          <p role="alert" className="text-xs font-bold text-rose-700">
+            {error}
+          </p>
+        )}
 
         <div className="pt-4 flex justify-end gap-3 border-t border-[#EBEBEB]">
           <Link
@@ -127,9 +175,10 @@ export default function OnboardStaffPage() {
           </Link>
           <button
             type="submit"
+            disabled={submitting}
             className="py-3 px-8 bg-[#FF385C] hover:bg-[#E00B41] text-white font-bold text-xs rounded-xl shadow-md"
           >
-            Onboard Staff Member
+            {submitting ? "Saving..." : "Onboard Staff Member"}
           </button>
         </div>
       </form>
