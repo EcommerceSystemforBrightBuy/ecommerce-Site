@@ -25,7 +25,7 @@ import {
 export default function ProductDetailPage({ params }) {
   const unwrappedParams = use(params);
   const router = useRouter();
-  const { selectedCity, setSelectedCity, addToCart } = useShop();
+  const { selectedCity, setSelectedCity, addToCart, setBuyNowDirect } = useShop();
   const [product, setproduct] = useState(null);
   const [loading, setloading] = useState(true);
   const [variantIndex, setVariantIndex] = useState(0);
@@ -78,7 +78,7 @@ export default function ProductDetailPage({ params }) {
 
   const handleBuyNow = () => {
     if(!activeVariant) return;
-    addToCart(product, activeVariant, quantity);
+    setBuyNowDirect(product, activeVariant, quantity);
     router.push("/checkout");
   };
 
@@ -180,16 +180,6 @@ export default function ProductDetailPage({ params }) {
                           ${variant?.price?.toFixed(2) ?? "-"} • {variant?.sku ?? "-"}
                         </div>
                       </div>
-
-                      <span
-                        className={`shrink-0 whitespace-nowrap text-[10px] font-bold px-2 py-1 rounded-full ${
-                          inStock
-                            ? "bg-emerald-100 text-emerald-900"
-                            : "bg-amber-100 text-amber-900"
-                        }`}
-                      >
-                        {inStock ? `${variant.stock} in stock` : "Backorder"}
-                      </span>
                     </div>
 
                     {variant.attributes?.length > 0 && (
@@ -310,7 +300,7 @@ export default function ProductDetailPage({ params }) {
                 <span className="px-3 font-bold text-[#222222] font-mono">{quantity}</span>
                 <button
                   type="button"
-                  disabled={quantity >= (activeVariant?.stock || 10)}
+                  disabled={quantity >= 99}
                   onClick={() => setQuantity((q) => q + 1)}
                   className="w-7 h-7 rounded-full bg-white text-[#222222] flex items-center justify-center disabled:opacity-30 shadow-2xs font-bold"
                 >

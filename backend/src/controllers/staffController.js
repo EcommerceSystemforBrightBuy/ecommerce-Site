@@ -1,4 +1,9 @@
-const bcrypt = require('bcrypt');
+let bcrypt;
+try {
+  bcrypt = require('bcryptjs');
+} catch {
+  bcrypt = require('bcrypt');
+}
 const { randomUUID } = require('crypto');
 const db = require('../config/db');
 

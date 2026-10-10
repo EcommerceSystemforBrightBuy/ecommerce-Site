@@ -23,33 +23,59 @@ export default function CheckoutPaymentPage() {
   const router = useRouter();
   const {
     cartItems,
+    buyNowItem,
+    clearBuyNow,
     currentUser,
     checkoutData,
     updateCheckoutData,
-    cartSubtotal,
-    texasSalesTax,
+    cartSubtotal: contextSubtotal,
     clearCart,
     setLastOrder,
   } = useShop();
 
+  const activeItems = buyNowItem ? [buyNowItem] : cartItems;
+
+  const activeSubtotal = activeItems.reduce(
+    (acc, item) => acc + (item.variant?.price || item.unitPrice || 0) * (item.quantity || 1),
+    0
+  );
+
+  const [processing, setProcessing] = useState(false);
+
+  const estimate = calculateDeliveryEstimate(
+    checkoutData.shippingCity,
+    true
+  );
+
+  const shippingFee =
+    checkoutData.deliveryMode === "pickup"
+      ? 0.0
+      : activeSubtotal > 150
+        ? 0.0
+        : 15.0;
+
+  const totalDue = activeSubtotal + shippingFee;
 
   const handlePayNow = async (e) => {
     e.preventDefault();
     setProcessing(true);
 
     try {
+      const baseUrl = process.env.NEXT_PUBLIC_URL || "http://localhost:8000";
       const payload = {
-        customerId: currentUser?.id || 'CUST001',
+        customerId: currentUser?.customerId || currentUser?.customer_id || currentUser?.id || 'CUST005',
         totalAmount: totalDue,
         deliveryMode: checkoutData.deliveryMode || "standard",
+        shippingCity: checkoutData.shippingCity || "Houston",
         paymentMethod: checkoutData.paymentMethod === "card" ? "Card Payment" : "Cash on Delivery",
-        items: cartItems.map((item) => ({
-          varient_id: item.varient_id,
-          quantity: item.quantity,
-          unitPrice: item.variant.price
+        items: activeItems.map((item) => ({
+          variantId: item.variant?.variant_id || item.variant?.variantId || item.variant?.id || item.variant_id || "VAR001",
+          quantity: item.quantity || 1,
+          unitPrice: item.variant?.price !== undefined ? parseFloat(item.variant.price) : (item.unitPrice || 0)
         }))
       };
-      const response = await fetch("http://localhost:8000/api/orders", {
+
+      const response = await fetch(`${baseUrl}/api/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -58,38 +84,23 @@ export default function CheckoutPaymentPage() {
       const result = await response.json();
 
       if (result.success) {
-        clearCart();
+        if (buyNowItem) {
+          clearBuyNow();
+        } else {
+          clearCart();
+        }
         setProcessing(false);
         router.push("/checkout/confirmation");
       } else {
-        alert("Cjeckput failed: " + result.error);
-        setProcessing(flase);
+        alert("Checkout failed: " + (result.error || result.message));
+        setProcessing(false);
       }
     } catch (err) {
       console.error("payment submission error", err);
-      alert("server error connectin to backend API");
+      alert("Server error connecting to backend API");
       setProcessing(false);
     }
-
   };
-
-
-  const [processing, setProcessing] = useState(false);
-
-  const hasOutOfStock = cartItems.some((i) => i.variant.stock <= 0);
-  const estimate = calculateDeliveryEstimate(
-    checkoutData.shippingCity,
-    !hasOutOfStock
-  );
-
-  const shippingFee =
-    checkoutData.deliveryMode === "pickup"
-      ? 0.0
-      : cartSubtotal > 150
-        ? 0.0
-        : 15.0;
-
-  const totalDue = cartSubtotal + texasSalesTax + shippingFee;
 
   const selectedStore =
     STORE_PICKUP_LOCATIONS.find((s) => s.id === checkoutData.pickupStoreId) ||
@@ -136,7 +147,7 @@ export default function CheckoutPaymentPage() {
   //   }, 1200);
   // };
 
-  if (cartItems.length === 0) {
+  if (activeItems.length === 0) {
     return (
       <main className="max-w-4xl mx-auto px-4 py-16 text-center space-y-4">
         <h2 className="text-xl font-bold text-[#222222]">No active order in progress</h2>
@@ -250,7 +261,7 @@ export default function CheckoutPaymentPage() {
         {/* Itemized Order Review */}
         <div className="border border-[#DDDDDD] rounded-2xl p-6 space-y-4 text-xs bg-white shadow-sm">
           <div className="font-bold text-[#222222] text-xs flex items-center justify-between border-b border-[#EBEBEB] pb-3">
-            <span>Itemized Allocation ({cartItems.length} items)</span>
+            <span>Itemized Order ({activeItems.length} {activeItems.length === 1 ? "item" : "items"})</span>
             <span className="text-[#717171] font-normal">
               Fulfillment:{" "}
               {checkoutData.deliveryMode === "pickup"
@@ -260,33 +271,36 @@ export default function CheckoutPaymentPage() {
           </div>
 
           <div className="divide-y divide-[#EBEBEB]">
-            {cartItems.map((item) => (
-              <div
-                key={`${item.product.id}-${item.variant.id}`}
-                className="py-3 flex items-center justify-between"
-              >
-                <div>
-                  <div className="font-bold text-[#222222] text-sm">{item.product.name}</div>
-                  <div className="text-xs text-[#717171]">
-                    Variant: {item.variant.name} • SKU: {item.variant.sku} × {item.quantity}
+            {activeItems.map((item, idx) => {
+              const pName = item.product?.name || item.name || "Product";
+              const vName = item.variant?.name || item.variant?.variant_name || "";
+              const sku = item.variant?.sku || item.sku || "";
+              const price = item.variant?.price !== undefined ? parseFloat(item.variant.price) : (item.unitPrice || 0);
+              const qty = item.quantity || 1;
+              return (
+                <div
+                  key={item.variant?.id || item.variant?.variant_id || idx}
+                  className="py-3 flex items-center justify-between"
+                >
+                  <div>
+                    <div className="font-bold text-[#222222] text-sm">{pName}</div>
+                    <div className="text-xs text-[#717171]">
+                      {vName ? `Variant: ${vName} • ` : ""}{sku ? `SKU: ${sku} • ` : ""}Qty: {qty}
+                    </div>
+                  </div>
+                  <div className="font-bold text-[#222222] text-sm">
+                    ${(price * qty).toFixed(2)}
                   </div>
                 </div>
-                <div className="font-bold text-[#222222] text-sm">
-                  ${(item.variant.price * item.quantity).toFixed(2)}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Pricing Totals */}
           <div className="pt-3 border-t border-[#EBEBEB] space-y-2 text-xs text-[#717171]">
             <div className="flex justify-between">
               <span>Subtotal</span>
-              <span className="font-bold text-[#222222]">${cartSubtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Texas State Sales Tax (8.25%)</span>
-              <span className="font-bold text-[#222222]">${texasSalesTax.toFixed(2)}</span>
+              <span className="font-bold text-[#222222]">${activeSubtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
               <span>Delivery Charges</span>
@@ -300,18 +314,6 @@ export default function CheckoutPaymentPage() {
                 ${totalDue.toFixed(2)}
               </span>
             </div>
-          </div>
-        </div>
-
-        {/* Central Warehouse Atomic Validation Guarantee */}
-        <div className="border border-[#DDDDDD] rounded-2xl p-4 flex items-start gap-3 text-xs bg-[#F7F7F7]">
-          <Warehouse className="w-5 h-5 text-[#FF385C] shrink-0 mt-0.5" />
-          <div className="space-y-0.5">
-            <div className="font-bold text-[#222222]">Atomic Stock Deduction Guarantee</div>
-            <p className="text-[#717171] text-xs leading-relaxed">
-              Upon clicking "Confirm &amp; Place Order", warehouse inventory for each specified SKU
-              is atomically decremented in our central Texas database to eliminate stock mismatches.
-            </p>
           </div>
         </div>
 

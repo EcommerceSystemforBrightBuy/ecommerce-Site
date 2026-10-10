@@ -24,17 +24,18 @@ export default function CheckoutAddressPage() {
   const router = useRouter();
   const {
     cartItems,
+    buyNowItem,
     currentUser,
     checkoutData,
     updateCheckoutData,
     cartSubtotal,
   } = useShop();
 
+  const checkoutItems = buyNowItem ? [buyNowItem] : cartItems;
   const singleStore = STORE_PICKUP_LOCATIONS[0];
-  const hasOutOfStock = cartItems.some((i) => i.variant.stock <= 0);
   const estimate = calculateDeliveryEstimate(
     checkoutData.shippingCity,
-    !hasOutOfStock
+    true
   );
 
   const handleContinue = (e) => {
@@ -46,7 +47,7 @@ export default function CheckoutAddressPage() {
     router.push("/checkout/payment");
   };
 
-  if (cartItems.length === 0) {
+  if (checkoutItems.length === 0) {
     return (
       <main className="max-w-4xl mx-auto px-4 py-16 text-center space-y-4">
         <h2 className="text-xl font-bold text-[#222222]">No items to checkout</h2>
