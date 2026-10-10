@@ -1,6 +1,6 @@
 const nextId = async(Connection, table, col, prefix, pad) =>{
     const [rows] = await Connection.execute(
-        `Select max(cast(substring(${col},4) as unsigned)) as last_num from ${table}`
+        `Select max(cast(substring(${col},${prefix.length + 1}) as unsigned)) as last_num from ${table}`
     );
 
     return `${prefix}${String((rows[0].last_num || 0) + 1).padStart(pad,"0")}`;

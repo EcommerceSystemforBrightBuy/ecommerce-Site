@@ -39,7 +39,7 @@ export default function CheckoutPaymentPage() {
 
     try {
       const payload = {
-        customerId: currentUser?.id || 'CUST001',
+        customer_id: currentUser?.id || 'CUST001',
         totalAmount: totalDue,
         deliveryMode: checkoutData.deliveryMode || "standard",
         paymentMethod: checkoutData.paymentMethod === "card" ? "Card Payment" : "Cash on Delivery",
