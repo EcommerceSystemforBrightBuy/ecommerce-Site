@@ -477,7 +477,7 @@ const addProductFeedback = async (req, res) => {
         await Connection.beginTransaction();
 
         const [customer] = await Connection.execute(
-            `SELECT customer_id FROM customer WHERE customer_id = ?`,
+            `SELECT customer_id FROM customer WHERE customer_id = ? FOR UPDATE`,
             [customer_id]
         );
         if (customer.length === 0) {
@@ -495,6 +495,15 @@ const addProductFeedback = async (req, res) => {
             return res.status(404).json({ error: "Product not found" });
         }
 
+        const [existingFeedback] = await Connection.execute(
+            `SELECT feedback_id FROM product_feedback WHERE product_id = ? AND customer_id = ? LIMIT 1`,
+            [productId, customer[0].customer_id]
+        );
+        if (existingFeedback.length > 0) {
+            await Connection.rollback();
+            return res.status(409).json({ error: "You have already reviewed this product" });
+        }
+
         const feedback_id = `FB${randomUUID()}`;
         await Connection.execute(
             `INSERT INTO product_feedback (feedback_id, product_id, customer_id, rating, review) VALUES (?,?,?,?,?)`,
@@ -507,11 +516,7 @@ const addProductFeedback = async (req, res) => {
         await Connection.rollback();
 
         if (e.code === "ER_DUP_ENTRY") {
-            if (e.sqlMessage?.includes("uq_feedback") || e.sqlMessage?.includes("product_id, customer_id")) {
-                return res.status(409).json({ error: "You have already reviewed this product" });
-            }
-            console.error("Duplicate product feedback key:", e.sqlMessage);
-            return res.status(409).json({ error: "This feedback could not be saved because it already exists" });
+            return res.status(409).json({ error: "You have already reviewed this product" });
         }
         if (e.code === "ER_NO_REFERENCED_ROW_2") {
             return res.status(400).json({ error: "Invalid customer" });
