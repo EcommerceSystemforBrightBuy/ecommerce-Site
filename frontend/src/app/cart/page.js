@@ -225,8 +225,8 @@ export default function CartPage() {
                 <span className="font-semibold text-[#222222]">${cartSubtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-[#717171]">
-                <span>Delivery or Store Pickup</span>
-                <span className="text-[#222222] font-medium">Calculated at checkout</span>
+                <span>Statewide Delivery</span>
+                <span className="font-bold text-emerald-600">FREE</span>
               </div>
 
               <div className="pt-3 border-t border-[#EBEBEB] flex justify-between items-baseline">
