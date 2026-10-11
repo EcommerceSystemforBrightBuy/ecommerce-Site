@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const pool = require('../config/db');
 
 // 1. POST /api/orders — Call sp_checkout_order Stored Procedure
@@ -189,6 +190,14 @@ exports.createOrder = async (req, res) => {
                     [itemID, id, item.variantId, item.quantity, item.unitPrice, subtotal]
                 );
             }
+        }
+
+        // 3. If online card payment was completed via PayHere Sandbox, update payment status
+        if (req.body.paymentStatus === 'completed' || req.body.transactionId || (formattedPaymentMethod === 'Card Payment' && req.body.payhereCompleted)) {
+            await connection.query(
+                `UPDATE payment SET payment_status = 'completed' WHERE order_id = ?`,
+                [id]
+            ).catch(() => {});
         }
 
         res.status(201).json({
@@ -408,3 +417,100 @@ exports.updateOrderStatus = async (req, res) => {
         connection.release();
     }
 };
+
+// 5. POST /api/orders/payhere-params — Generate PayHere Sandbox Hash and Checkout Payload
+exports.getPayHereParams = async (req, res) => {
+    try {
+        const {
+            orderId,
+            totalAmount,
+            amount,
+            currency,
+            customer,
+            items,
+            returnUrl,
+            cancelUrl
+        } = req.body || {};
+
+        const appId = process.env.APP_ID || process.env.PAYHERE_APP_ID || '4OVzEi2LPv64JEVO3QwZqU3Xe';
+        const appSecret = process.env.APP_secret || process.env.APP_SECRET || process.env.PAYHERE_APP_SECRET || '4ks4JbfYVPE4Dujqa4kqyz8Rks8mCDk9a4JHLDtLVnPc';
+        const merchantId = process.env.PAYHERE_MERCHANT_ID || process.env.MERCHANT_ID || '1211149';
+        const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || appSecret;
+
+        const resolvedOrderId = orderId || `ORD-TX-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const resolvedAmount = parseFloat(totalAmount || amount || 0).toFixed(2);
+        const resolvedCurrency = (currency || 'USD').toUpperCase();
+
+        // PayHere Hash generation:
+        // MD5(merchant_id + order_id + formatted_amount + currency + MD5(merchant_secret).toUpperCase()).toUpperCase()
+        const hashedSecret = crypto
+            .createHash('md5')
+            .update(merchantSecret)
+            .digest('hex')
+            .toUpperCase();
+
+        const inputString = merchantId + resolvedOrderId + resolvedAmount + resolvedCurrency + hashedSecret;
+
+        const hash = crypto
+            .createHash('md5')
+            .update(inputString)
+            .digest('hex')
+            .toUpperCase();
+
+        const cust = customer || {};
+        const nameParts = (cust.name || 'BrightBuy Customer').trim().split(/\s+/);
+        const firstName = cust.firstName || cust.first_name || nameParts[0] || 'Customer';
+        const lastName = cust.lastName || cust.last_name || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Texas');
+
+        const itemsDescription = Array.isArray(items) && items.length > 0
+            ? items.map(it => `${it.product?.name || it.name || 'Product'} (x${it.quantity || 1})`).join(', ')
+            : `BrightBuy Texas Retail Order #${resolvedOrderId}`;
+
+        return res.status(200).json({
+            success: true,
+            sandbox: true,
+            app_id: appId,
+            merchant_id: merchantId,
+            order_id: resolvedOrderId,
+            items: itemsDescription,
+            amount: resolvedAmount,
+            currency: resolvedCurrency,
+            hash: hash,
+            first_name: firstName,
+            last_name: lastName,
+            email: cust.email || 'customer@brightbuy.tx',
+            phone: cust.phone || '(512) 555-0188',
+            address: cust.address || cust.streetAddress || 'Texas Central Warehouse Store',
+            city: cust.city || cust.shippingCity || 'Austin',
+            country: 'United States',
+            notify_url: `${req.protocol}://${req.get('host')}/api/orders/payhere-notify`,
+            return_url: returnUrl || 'http://localhost:3000/checkout/confirmation',
+            cancel_url: cancelUrl || 'http://localhost:3000/checkout/payment',
+        });
+    } catch (error) {
+        console.error('PayHere Param Generation Error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+// 6. POST /api/orders/payhere-notify — PayHere IPN Webhook
+exports.handlePayHereNotify = async (req, res) => {
+    try {
+        const { order_id, status_code, payhere_amount } = req.body || {};
+        console.log(`[PayHere Webhook] Order: ${order_id}, Status: ${status_code}, Amount: ${payhere_amount}`);
+
+        // Status code 2 indicates successful payment in PayHere Sandbox
+        if (status_code == 2 || status_code == '2') {
+            await pool.query(
+                `UPDATE payment SET payment_status = 'completed' WHERE order_id = ?`,
+                [order_id]
+            ).catch(() => {});
+        }
+
+        return res.status(200).send('OK');
+    } catch (error) {
+        console.error('[PayHere Webhook Error]:', error);
+        return res.status(500).send('Webhook Processing Error');
+    }
+};
+

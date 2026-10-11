@@ -48,6 +48,7 @@ export default function AdminLayout({ children }) {
   const [checkedAuth, setCheckedAuth] = useState(false);
 
   const [isCustomerAccount, setIsCustomerAccount] = useState(false);
+  const [customerInfo, setCustomerInfo] = useState(null);
 
   useEffect(() => {
     try {
@@ -56,44 +57,59 @@ export default function AdminLayout({ children }) {
 
       // Check if user is actively logged in as a customer
       let customerLoggedIn = false;
+      let custData = null;
       if (storedCustomer) {
-        const parsedCust = JSON.parse(storedCustomer);
-        if (parsedCust?.customerId || parsedCust?.email) {
+        custData = JSON.parse(storedCustomer);
+        if (custData?.customerId || custData?.email || custData?.firstName) {
           customerLoggedIn = true;
         }
       }
 
       if (customerLoggedIn) {
         setIsCustomerAccount(true);
+        setCustomerInfo(custData);
         setAdminUser(null);
       } else if (storedAdmin) {
         const parsedAdmin = JSON.parse(storedAdmin);
         if (parsedAdmin.role === "customer") {
           setIsCustomerAccount(true);
+          setCustomerInfo(parsedAdmin);
           setAdminUser(null);
         } else {
           setIsCustomerAccount(false);
+          setCustomerInfo(null);
           setAdminUser(parsedAdmin);
         }
       } else {
         setIsCustomerAccount(false);
+        setCustomerInfo(null);
         setAdminUser(null);
       }
     } catch {
       setAdminUser(null);
+      setCustomerInfo(null);
     } finally {
       setCheckedAuth(true);
     }
   }, [pathname]);
 
-  // Handle redirection inside useEffect to prevent setState/Router updates during render
+  // For unauthenticated guests, redirect to admin login
   useEffect(() => {
     if (checkedAuth && pathname !== "/admin/login") {
-      if (isCustomerAccount || !adminUser || adminUser.role === "customer") {
+      if (!isCustomerAccount && (!adminUser || adminUser.role === "customer")) {
         router.replace("/admin/login");
       }
     }
   }, [checkedAuth, isCustomerAccount, adminUser, pathname, router]);
+
+  const handleLogoutCustomer = () => {
+    try {
+      window.localStorage.removeItem("brightbuy_user");
+    } catch {}
+    setIsCustomerAccount(false);
+    setCustomerInfo(null);
+    router.replace("/admin/login");
+  };
 
   // If on admin login page, bypass layout shell
   if (pathname === "/admin/login") {
@@ -112,8 +128,57 @@ export default function AdminLayout({ children }) {
     );
   }
 
-  // 2. Security Guard: Block Customer accounts & unauthenticated users from viewing Admin Portal
-  if (isCustomerAccount || !adminUser || adminUser.role === "customer") {
+  // 2. Security Guard: If logged in as customer, show explicit Alert with Logout option
+  if (isCustomerAccount) {
+    return (
+      <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center p-4 text-[#222222] font-sans">
+        <div className="bg-white border-2 border-red-300 rounded-3xl p-8 max-w-lg w-full text-center space-y-6 shadow-2xl animate-in fade-in">
+          <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto border-2 border-red-200">
+            <AlertTriangle className="w-9 h-9" />
+          </div>
+          <div className="space-y-2">
+            <span className="inline-block px-3 py-1 bg-red-100 text-red-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-red-200">
+              Access Restricted • Customer Role
+            </span>
+            <h1 className="text-2xl font-black text-[#222222]">
+              Customer Account Detected
+            </h1>
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 font-medium text-left space-y-1">
+              <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                <span>Active Account:</span>
+                <span className="font-mono text-red-700">
+                  {customerInfo?.name || customerInfo?.email || "Customer User"}
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-800">
+                You have logged in as a customer. Customers cannot access the Admin page. Please log out and use a staff account.
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-2 space-y-2.5">
+            <button
+              type="button"
+              onClick={handleLogoutCustomer}
+              className="w-full py-3.5 bg-[#FF385C] hover:bg-[#E00B41] text-white font-black text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Log Out Customer Account &amp; Use Staff Account</span>
+            </button>
+            <Link
+              href="/"
+              className="w-full py-3 bg-[#F7F7F7] hover:bg-[#EBEBEB] text-[#222222] font-bold text-xs rounded-xl transition-colors inline-block border border-[#DDDDDD]"
+            >
+              Return to Customer Storefront
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Security Guard: If not logged in as staff
+  if (!adminUser || adminUser.role === "customer") {
     return (
       <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center p-4 text-[#222222] font-sans">
         <div className="bg-white border border-red-200 rounded-3xl p-8 max-w-md w-full text-center space-y-5 shadow-xl">
@@ -122,13 +187,13 @@ export default function AdminLayout({ children }) {
           </div>
           <div>
             <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest block">
-              Security Access Denied
+              Staff Authentication Required
             </span>
             <h1 className="text-2xl font-black text-[#222222] mt-1">
               Staff Portal Restricted
             </h1>
             <p className="text-xs text-[#717171] mt-2 leading-relaxed">
-              Customer accounts and unauthenticated users are strictly prohibited from accessing Texas Central Warehouse Operations &amp; Admin management tools.
+              Please sign in with your staff or administrator credentials to access the Texas Central Operations Portal.
             </p>
           </div>
 
