@@ -40,8 +40,6 @@ export default function ProductDetailPage({ params }) {
     ? reviews
     : reviews.slice(0, REVIEWS_PREVIEW); // Show only the limited number of reviews in preview mode
 
-  const [reviews, setReviews] = useState([]);
-
   useEffect(() => {
      fetch(`${process.env.NEXT_PUBLIC_URL}/api/products/${unwrappedParams.id}`)
        .then(response => {
