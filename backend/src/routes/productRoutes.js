@@ -7,12 +7,16 @@ const {getAllProducts,
        createProduct,
        updateProduct,
        deleteProduct,
-       getAllProductswithVariants
+       getAllProductswithVariants,
+       getProductReviews,
+       addProductFeedback
 } = require('../controllers/productController');
 
 //For admin page
 productRouter.get('/admin',getAllProductswithVariants);
 
+productRouter.post('/feedback', addProductFeedback);
+productRouter.get('/:id/reviews', getProductReviews);
 productRouter.get('/',getAllProducts).get('/:id',getProductByID);
 productRouter.get('/:id/reviews',getProductwithReview);
 productRouter.post('/',createProduct);

@@ -239,6 +239,17 @@ export function ShopProvider({ children }) {
     setCartItems([]); 
   };
 
+  const [buyNowItem, setBuyNowItem] = useState(null);
+
+  const setBuyNowDirect = (product, variant, qty = 1) => {
+    const item = toCartItem(product, variant, qty);
+    setBuyNowItem(item);
+  };
+
+  const clearBuyNow = () => {
+    setBuyNowItem(null);
+  };
+
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   const cartSubtotal = cartItems.reduce(
@@ -246,7 +257,7 @@ export function ShopProvider({ children }) {
     0
   );
 
-  const texasSalesTax = cartSubtotal * 0.0825; 
+  const texasSalesTax = 0; 
 
   return (
     <ShopContext.Provider
@@ -259,6 +270,9 @@ export function ShopProvider({ children }) {
         selectedCity,
         setSelectedCity,
         cartItems,
+        buyNowItem,
+        setBuyNowDirect,
+        clearBuyNow,
         addToCart,
         updateQuantity,
         removeFromCart,
