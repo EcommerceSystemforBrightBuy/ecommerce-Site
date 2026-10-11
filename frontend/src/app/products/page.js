@@ -182,7 +182,7 @@ export default function ProductsSearchPage() {
               setSelectedCat("all");
               setInStockOnly(false);
             }}
-            className="mt-4 bg-[#222222] text-white text-xs font-bold px-5 py-2.5 rounded-full"
+            className="mt-4 bg-[#222222] text-white text-xs font-bold px-6 py-2.5 rounded-full hover:bg-black transition-all active:scale-95 cursor-pointer shadow-sm"
           >
             Clear Filters
           </button>
@@ -195,7 +195,7 @@ export default function ProductsSearchPage() {
               <Link
                 key={item.product_id}
                 href={`/products/${item.product_id}`}
-                className="group flex flex-col space-y-3 cursor-pointer"
+                className="group flex flex-col space-y-3 cursor-pointer p-2.5 rounded-3xl border border-transparent hover:border-[#EBEBEB] hover:bg-white hover:shadow-xl transition-all duration-300 -translate-y-0 hover:-translate-y-1.5"
               >
                 <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#F7F7F7] border border-[#EBEBEB]">
                   <img
@@ -205,44 +205,63 @@ export default function ProductsSearchPage() {
                       e.currentTarget.src = '/placeholder.png';
                     }}
                     alt={item.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
+                    className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500 ease-out"
                   />
                   
                   <button
                     type="button"
                     onClick={(e) => toggleFavorite(item.product_id, e)}
-                    className="absolute top-3 right-3 p-2 rounded-full text-white/90 hover:scale-110 transition-transform"
+                    className="absolute top-3 right-3 p-2 rounded-full bg-white/80 backdrop-blur-xs text-neutral-700 hover:text-[#FF385C] hover:scale-115 transition-all shadow-xs cursor-pointer z-10"
+                    aria-label="Save to favorites"
                   >
                     <Heart
-                      className={`w-6 h-6 stroke-2 ${
-                        isFav ? "fill-[#FF385C] text-[#FF385C]" : "fill-black/30 text-white"
+                      className={`w-4 h-4 stroke-2 ${
+                        isFav ? "fill-[#FF385C] text-[#FF385C]" : "text-[#555555]"
                       }`}
                     />
                   </button>
 
                   {item.badge && (
-                    <span className="absolute top-3 left-3 px-2.5 py-1 text-[11px] font-bold bg-white/90 text-[#222222] rounded-full shadow-sm">
+                    <span className="absolute top-3 left-3 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-white/95 backdrop-blur-xs text-[#222222] rounded-full shadow-xs border border-white/40">
                       {item.badge}
                     </span>
                   )}
+
+                  {/* Free Delivery Tag */}
+                  <span className="absolute bottom-2.5 left-2.5 px-2 py-0.5 text-[9px] font-extrabold bg-emerald-600/90 text-white rounded-md backdrop-blur-xs shadow-2xs">
+                    Free TX Shipping
+                  </span>
+
+                  {/* Quick View overlay button */}
+                  <div className="absolute inset-x-3 bottom-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 hidden sm:block">
+                    <div className="w-full py-2 bg-neutral-900/90 backdrop-blur-md text-white text-[11px] font-bold rounded-xl text-center shadow-lg hover:bg-black">
+                      View Hardware Unit
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-0.5 text-xs">
+                <div className="space-y-1 text-xs px-1">
                   <div className="flex items-center justify-between font-bold text-[#222222]">
-                    <span className="truncate pr-2 text-sm">{item.name}</span>
-                    <div className="flex items-center gap-1 shrink-0 text-xs">
-                      <Star className="w-3.5 h-3.5 fill-[#222222] text-[#222222]" />
-                      <span>{item.rating ?? "No review yet"}</span>
+                    <span className="truncate pr-2 text-sm font-extrabold group-hover:text-[#FF385C] transition-colors">
+                      {item.name}
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0 text-xs font-black">
+                      <Star className="w-3.5 h-3.5 fill-[#FF385C] text-[#FF385C]" />
+                      <span>{item.rating ? Number(item.rating).toFixed(1) : "5.0"}</span>
                     </div>
                   </div>
 
-                  <p className="text-[#717171] text-xs">
+                  <p className="text-[#717171] text-xs font-medium truncate">
                     {item.brand} • SKU: {item.sku}
                   </p>
 
-                  <div className="pt-1 flex items-baseline gap-1 text-sm font-extrabold text-[#222222]">
-                    <span>${item.price?.toFixed(2)}</span>
-                    <span className="text-xs font-normal text-[#717171]">total</span>
+                  <div className="pt-1.5 flex items-baseline justify-between">
+                    <div className="flex items-baseline gap-1 text-base font-black text-[#222222]">
+                      <span>${Number(item.price || 0).toFixed(2)}</span>
+                    </div>
+                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      Austin Stock
+                    </span>
                   </div>
                 </div>
               </Link>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   ShieldCheck,
@@ -12,7 +12,10 @@ import {
   Sparkles,
   ArrowRight,
   AlertCircle,
+  AlertTriangle,
   UserCheck,
+  LogOut,
+  CheckCircle2,
 } from "lucide-react";
 
 const DEMO_STAFF_PERSONAS = [
@@ -64,6 +67,29 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("admin123");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [customerAccount, setCustomerAccount] = useState(null);
+  const [successMsg, setSuccessMsg] = useState("");
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("brightbuy_user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.customerId || parsed?.email || parsed?.firstName) {
+          setCustomerAccount(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  const handleLogoutCustomer = () => {
+    try {
+      window.localStorage.removeItem("brightbuy_user");
+    } catch {}
+    setCustomerAccount(null);
+    setSuccessMsg("Customer account logged out. You can now sign in with staff credentials.");
+    setTimeout(() => setSuccessMsg(""), 5000);
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -214,6 +240,38 @@ export default function AdminLoginPage() {
                 Log into your authorized operational workspace.
               </p>
             </div>
+
+            {/* Customer Session Detected Alert Banner */}
+            {customerAccount && (
+              <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 text-xs space-y-3 shadow-sm">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="font-bold text-amber-950 block">
+                      Active Customer Session: {customerAccount.name || customerAccount.email}
+                    </span>
+                    <p className="text-amber-900 leading-relaxed text-[11px]">
+                      You have logged in as a customer. Customers cannot access the Admin page. Please log out and use a staff account.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLogoutCustomer}
+                  className="w-full py-2.5 bg-[#FF385C] hover:bg-[#E00B41] text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 text-xs shadow-sm cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Log Out Customer Account</span>
+                </button>
+              </div>
+            )}
+
+            {successMsg && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{successMsg}</span>
+              </div>
+            )}
 
             {error && (
               <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs font-semibold flex items-start gap-2.5">
