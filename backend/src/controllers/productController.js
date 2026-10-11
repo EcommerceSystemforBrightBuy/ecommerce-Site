@@ -1,4 +1,5 @@
 const pool = require(`./../config/db`)
+const { randomUUID } = require("crypto");
 const {
     nextId,
     insertVariant,
@@ -488,26 +489,17 @@ const addProductFeedback = async (req, res) => {
             `SELECT 1 FROM product WHERE product_id = ? AND is_active = 1`,
             [productId]
         );
+        
         if (prod.length === 0) {
             await Connection.rollback();
             return res.status(404).json({ error: "Product not found" });
         }
 
-        // Retry up to 3 times if two requests generate the same feedback_id
-        for (let attempt = 0; attempt < 3; attempt++) {
-            try {
-                const feedback_id = await nextId(Connection, "product_feedback", "feedback_id", "FB", 3);
-                await Connection.execute(
-                    `INSERT INTO product_feedback (feedback_id, product_id, customer_id, rating, review) VALUES (?,?,?,?,?)`,
-                    [feedback_id, productId, customer[0].customer_id, rating, reviewText || null]
-                );
-                break;
-            } catch (e) {
-                const idClash = e.code === "ER_DUP_ENTRY" && e.sqlMessage?.includes("PRIMARY");
-                if (idClash && attempt < 2) continue;
-                throw e;
-            }
-        }
+        const feedback_id = `FB${randomUUID()}`;
+        await Connection.execute(
+            `INSERT INTO product_feedback (feedback_id, product_id, customer_id, rating, review) VALUES (?,?,?,?,?)`,
+            [feedback_id, productId, customer[0].customer_id, rating, reviewText || null]
+        );
 
         await Connection.commit();
         res.status(201).json({ success: true, message: "Review added successfully" });
@@ -515,10 +507,11 @@ const addProductFeedback = async (req, res) => {
         await Connection.rollback();
 
         if (e.code === "ER_DUP_ENTRY") {
-            if (e.sqlMessage?.includes("uq_feedback")) {
+            if (e.sqlMessage?.includes("uq_feedback") || e.sqlMessage?.includes("product_id, customer_id")) {
                 return res.status(409).json({ error: "You have already reviewed this product" });
             }
-            return res.status(503).json({ error: "Please try again" });
+            console.error("Duplicate product feedback key:", e.sqlMessage);
+            return res.status(409).json({ error: "This feedback could not be saved because it already exists" });
         }
         if (e.code === "ER_NO_REFERENCED_ROW_2") {
             return res.status(400).json({ error: "Invalid customer" });
