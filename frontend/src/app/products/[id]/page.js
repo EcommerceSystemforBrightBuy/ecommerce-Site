@@ -25,7 +25,14 @@ import {
 export default function ProductDetailPage({ params }) {
   const unwrappedParams = use(params);
   const router = useRouter();
-  const { selectedCity, setSelectedCity, addToCart, setBuyNowDirect } = useShop();
+  const {
+    currentUser,
+    authReady,
+    selectedCity,
+    setSelectedCity,
+    addToCart,
+    setBuyNowDirect,
+  } = useShop();
   const [product, setproduct] = useState(null);
   const [loading, setloading] = useState(true);
   const [variantIndex, setVariantIndex] = useState(0);
@@ -119,6 +126,9 @@ export default function ProductDetailPage({ params }) {
     star,
     count: reviews.filter((r) => Number(r.rating) === star).length,
   }));
+  const reviewAverage = reviews.length
+    ? reviews.reduce((total, review) => total + Number(review.rating || 0), 0) / reviews.length
+    : null;
 
   const handleAddToCart = () => {
     if(!activeVariant) return; // Ensure a variant is selected before adding to cart
@@ -137,7 +147,8 @@ export default function ProductDetailPage({ params }) {
     e.preventDefault();
     setReviewMsg({type: "", text: ""});
 
-    if (!currentUser?.customer_id) {
+    const customerId = currentUser?.customerId ?? currentUser?.customer_id;
+    if (!customerId) {
       setReviewMsg({ type: "error", text: "Your account is missing a customer ID. Please sign in with a registered customer account." });
       return;
     }
@@ -157,7 +168,7 @@ export default function ProductDetailPage({ params }) {
             "Content-type" : "application/json",
           },
           body : JSON.stringify({
-            customer_id : currentUser.customer_id,
+            customer_id: customerId,
             rating : myRating,
             review : myReview
           }),
@@ -206,8 +217,8 @@ export default function ProductDetailPage({ params }) {
         <div className="flex flex-wrap items-center gap-3 text-xs text-[#222222] font-semibold">
           <div className="flex items-center gap-1">
             <Star className="w-4 h-4 fill-[#222222] text-[#222222]" />
-            <span>{product.rating ?? "No rating"}</span>
-            <span className="text-[#717171] font-normal">({product.reviewCount ? product.reviewCount+" reviews" : "No reviews yet"})</span>
+            <span>{reviewAverage !== null ? reviewAverage.toFixed(1) : "No rating"}</span>
+            <span className="text-[#717171] font-normal">({reviews.length ? `${reviews.length} ${reviews.length === 1 ? "review" : "reviews"}` : "No reviews yet"})</span>
           </div>
           <span>•</span>
           <span>Brand: {product.brand}</span>
@@ -374,12 +385,12 @@ export default function ProductDetailPage({ params }) {
                   <span className="text-[#717171] font-normal">({reviews.length})</span>
                 </h3>
 
-                {product.rating && (
+                {reviewAverage !== null && (
                   <div className="flex items-center gap-1.5 text-sm font-bold text-[#222222]">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span>{product.rating}</span>
+                    <span>{reviewAverage.toFixed(1)}</span>
                     <span className="text-[#717171] font-normal">
-                      average · {product.reviewCount} {product.reviewCount === 1 ? "review" : "reviews"}
+                      average · {reviews.length} {reviews.length === 1 ? "review" : "reviews"}
                     </span>
                   </div>
                 )}
@@ -387,13 +398,13 @@ export default function ProductDetailPage({ params }) {
               {reviews.length > 0 && (
                 <div className="p-5 rounded-2xl border border-[#EBEBEB] bg-white shadow-sm flex flex-col sm:flex-row gap-6">
                   <div className="flex flex-col items-center justify-center sm:w-40 shrink-0">
-                    <div className="text-4xl font-black text-[#222222]">{product.rating ?? "-"}</div>
+                    <div className="text-4xl font-black text-[#222222]">{reviewAverage?.toFixed(1) ?? "-"}</div>
                     <div className="flex items-center gap-0.5 mt-1">
                       {[1, 2, 3, 4, 5].map((n) => (
                         <Star
                           key={n}
                           className={`w-4 h-4 ${
-                            n <= Math.round(product.rating ?? 0)
+                            n <= Math.round(reviewAverage ?? 0)
                               ? "fill-yellow-400 text-yellow-400"
                               : "fill-transparent text-[#DDDDDD]"
                           }`}
@@ -504,7 +515,7 @@ export default function ProductDetailPage({ params }) {
               </div>
               <div className="flex items-center gap-1 text-xs font-bold text-[#222222]">
                 <Star className="w-3.5 h-3.5 fill-[#222222] text-[#222222]" />
-                <span>{product.rating ?? "No rating yet"}</span>
+                <span>{reviewAverage !== null ? reviewAverage.toFixed(1) : "No rating yet"}</span>
               </div>
             </div>
 
@@ -618,7 +629,7 @@ export default function ProductDetailPage({ params }) {
             <div className="flex items-center gap-1">
               <Star className="w-5 h-5 fill-[#FF385C] text-[#FF385C]" />
               <span className="text-xl font-black text-[#222222]">
-                {product.rating ? Number(product.rating).toFixed(1) : "N/A"}
+                {reviewAverage !== null ? reviewAverage.toFixed(1) : "N/A"}
               </span>
             </div>
             <span className="text-[#DDDDDD]">|</span>
