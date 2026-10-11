@@ -7,6 +7,7 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 | Database | MySQL                                  | Aiven          |
 | Backend  | Node.js, Express 5, mysql2             | Render         |
 | Frontend | Next.js (React)                        | Vercel         |
+| Containers | Docker, Docker Compose               | Local / self-hosted |
 
 **Live site:** https://brightbuy-zeta.vercel.app
 **API:** https://brightbuy-backend.onrender.com/api
@@ -48,9 +49,15 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 | POST | `/api/products` | Create product |
 | PUT | `/api/products/:id` | Update product, categories, variants and attributes |
 | DELETE | `/api/products/:id` | Delete product |
-| GET | `/api/products/:id/reviews` | Reviews for a product (reviewer first name and last initial only) |
-| POST | `/api/products/:id/reviews` | Add a review (`customerId`, `rating` 1–5, `review` up to 500 chars) |
+| GET | `/api/products/:id/reviews` | Reviews for a product (`getProductReviews`). Reviewer shown as `customer_name`, first name and last initial only (e.g. `Kalai S.`) |
+| POST | `/api/products/feedback` | Add a review (`addProductFeedback`). Body: `productId`, `customerId`, `rating` (whole number 1–5), `review` (up to 500 chars). Returns `201 { success: true }` |
 | GET | `/api/categories` | All categories |
+
+**Review endpoint behaviour** (`addProductFeedback`)
+- Validates the customer id, rating (integer 1–5) and review length (max 500 characters).
+- Runs in a transaction: checks the customer and an active product exist, then inserts the review with a generated `FB###` id (retries up to 3 times on an id clash).
+- One review per customer per product (`uq_feedback`): a second review returns `409 You have already reviewed this product`.
+- Other errors: `400` invalid input or customer, `403` customer not found, `404` product not found.
 
 **Database work**
 - Tables: `product`, `product_variant`, `product_attribute`, `category`, `product_category`, `inventory`, `product_feedback`.
@@ -79,7 +86,9 @@ _Features, API routes, DB objects, pages._
 ## Project Structure
 
 ```
+docker-compose.yml  runs backend + frontend containers
 backend/
+  Dockerfile
   database/        schema.sql, seed.sql, procedures.sql, functions.sql, triggers.sql, views.sql
   src/
     config/        db.js (mysql2 pool)
@@ -88,6 +97,7 @@ backend/
     utills/        shared DB helpers
     server.js
 frontend/
+  Dockerfile
   src/app/         Next.js pages (products, cart, checkout, account, admin, login, register)
   src/context/     ShopContext.jsx (current user + cart state)
 ```
@@ -138,8 +148,78 @@ NEXT_PUBLIC_URL=http://localhost:8000
 ```
 `NEXT_PUBLIC_URL` is baked in at build time, so redeploy the frontend after changing it.
 
+### 4. Docker (optional)
+
+Run the backend and frontend as containers instead of installing Node locally. The database stays on Aiven, so `backend/.env` (see step 2) is still required.
+
+`backend/Dockerfile`
+```dockerfile
+FROM node:22-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY src ./src
+ENV PORT=8000
+EXPOSE 8000
+CMD ["node", "src/server.js"]
+```
+
+`frontend/Dockerfile`
+```dockerfile
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+ARG NEXT_PUBLIC_URL
+ENV NEXT_PUBLIC_URL=$NEXT_PUBLIC_URL
+RUN npm run build
+
+FROM node:22-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app ./
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+`.dockerignore` (in both `backend/` and `frontend/`) keeps `node_modules`, `.env*` and, for the frontend, `.next` out of the image.
+
+`docker-compose.yml` (repo root)
+```yaml
+services:
+  backend:
+    build: ./backend
+    env_file: ./backend/.env
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+```
+
+Run:
+```bash
+docker compose up --build
+```
+Frontend: http://localhost:3000, API: http://localhost:8000/api/products
+
+Notes:
+- `NEXT_PUBLIC_URL` is baked in when the frontend image is **built**. After changing it, rebuild (`docker compose up --build`); restarting is not enough.
+- The `PORT` in `backend/.env` must match the port mapped in `docker-compose.yml` (8000 above).
+- The browser calls the API directly, so for a server deployment set `NEXT_PUBLIC_URL` to the backend's public URL, not `localhost`.
+- Never copy `.env` into an image. Pass it at runtime with `env_file`.
+
 ## Deployment
 
+- **Docker:** see "Docker (optional)" above. The live site itself runs on Render and Vercel, not Docker.
 - **Render (backend):** root directory `backend`, start command `node src/server.js`, set the `DB_*` environment variables.
 - **Vercel (frontend):** root directory `frontend`, set `NEXT_PUBLIC_URL` to the Render URL.
 - **Aiven (database):** allow the Render IP / `0.0.0.0/0` in the allowlist.
