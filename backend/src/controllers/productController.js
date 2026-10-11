@@ -384,6 +384,60 @@ const getAllCategories = async (req, res)=>{
 
 };
 
+const getProductReviews = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const [reviews] = await pool.execute(
+            `SELECT pf.feedback_id, pf.product_id, pf.customer_id, pf.rating, pf.review, pf.created_at,
+                    COALESCE(CONCAT(u.first_name, ' ', u.last_name), 'Verified Customer') AS customer_name
+             FROM product_feedback pf
+             LEFT JOIN customer cust ON pf.customer_id = cust.customer_id
+             LEFT JOIN \`user\` u ON cust.user_id = u.user_id
+             WHERE pf.product_id = ?
+             ORDER BY pf.created_at DESC`,
+            [id]
+        );
+        res.status(200).json(reviews);
+    } catch (err) {
+        console.error("Error fetching product reviews:", err);
+        res.status(500).json({ error: "Failed to fetch product reviews" });
+    }
+};
+
+const addProductFeedback = async (req, res) => {
+    try {
+        const { productId, product_id, customerId, customer_id, rating, review } = req.body;
+        const targetProductId = productId || product_id;
+        const targetCustomerId = customerId || customer_id || "CUST005";
+
+        if (!targetProductId || !rating) {
+            return res.status(400).json({ error: "Product ID and rating are required." });
+        }
+        const feedbackId = `FB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+        const [existing] = await pool.execute(
+            "SELECT feedback_id FROM product_feedback WHERE product_id = ? AND customer_id = ?",
+            [targetProductId, targetCustomerId]
+        );
+
+        if (existing.length > 0) {
+            await pool.execute(
+                "UPDATE product_feedback SET rating = ?, review = ?, created_at = NOW() WHERE product_id = ? AND customer_id = ?",
+                [Number(rating), review || null, targetProductId, targetCustomerId]
+            );
+        } else {
+            await pool.execute(
+                "INSERT INTO product_feedback (feedback_id, product_id, customer_id, rating, review, created_at) VALUES (?, ?, ?, ?, ?, NOW())",
+                [feedbackId, targetProductId, targetCustomerId, Number(rating), review || null]
+            );
+        }
+        res.status(200).json({ success: true, message: "Feedback submitted successfully!" });
+    } catch (err) {
+        console.error("Error saving feedback:", err);
+        res.status(500).json({ error: err.message || "Failed to submit feedback" });
+    }
+};
+
 module.exports = {
     getAllProducts,
     getAllProductswithVariants,
@@ -391,5 +445,7 @@ module.exports = {
     createProduct,
     updateProduct,
     deleteProduct,
-    getAllCategories
+    getAllCategories,
+    getProductReviews,
+    addProductFeedback
 };

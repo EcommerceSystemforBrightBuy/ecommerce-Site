@@ -1,71 +1,54 @@
-USE brightbuy;
-
-DELIMITER / /
-
-DROP PROCEDURE IF EXISTS sp_checkout_order / /
-
-CREATE PROCEDURE sp_checkout_order(
-    IN p_order_id VARCHAR(50),
-    IN p_customer_id VARCHAR(50),
-    IN p_total_amount DECIMAL(10,2),
-    IN p_delivery_mode VARCHAR(50),
-    IN p_address_id VARCHAR(50),
-    IN p_city_id VARCHAR(50),
-    IN p_payment_method VARCHAR(50),
+DELIMITER //
+CREATE PROCEDURE sp_adjust_warehouse_stock(
     IN p_variant_id VARCHAR(50),
-    IN p_quantity INT,
-    IN p_unit_price DECIMAL(10,2) 
+    IN p_quantity_change INT,
+    IN p_transaction_type VARCHAR(20),
+    IN p_user_id VARCHAR(50)
 )
 BEGIN
-    DECLARE v_delivery_days INT DEFAULT 5;
-
-    -- Rollback automatically if any SQL error occurs
+    DECLARE v_inventory_id VARCHAR(50);
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
         RESIGNAL;
     END;
 
-    -- Calculate estimated delivery days dynamically (5, 7, 8, or 10 days)
-    SET v_delivery_days = fn_calculate_delivery_days(p_city_id, p_variant_id, p_quantity);
-
     START TRANSACTION;
 
-    -- Step 1: Create `order` record
-    INSERT INTO `order` (order_id, customer_id, total_amount, order_status)
-    VALUES (p_order_id, p_customer_id, p_total_amount, 'confirmed');
+    SELECT inventory_id INTO v_inventory_id
+    FROM inventory
+    WHERE variant_id = p_variant_id
+    FOR UPDATE;
 
-    -- Step 2: Create `order_item` record
-    INSERT INTO order_item (order_item_id, order_id, variant_id, quantity, unit_price, subtotal)
-    VALUES (CONCAT('ITEM-', UUID()), p_order_id, p_variant_id, p_quantity, p_unit_price, (p_quantity * p_unit_price));
+    IF v_inventory_id IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Inventory row not found for variant';
+    END IF;
 
-    -- Step 3: Update inventory stock level
-    UPDATE inventory 
-    SET quantity_on_hand = quantity_on_hand - p_quantity
+    UPDATE inventory
+    SET quantity_on_hand = quantity_on_hand + p_quantity_change,
+        last_restocked_at = NOW()
     WHERE variant_id = p_variant_id;
 
-    -- Step 4: Create `delivery` record
-    INSERT INTO delivery (delivery_id, order_id, delivery_mode, delivery_address_id, estimated_delivery_date, delivery_status)
+    INSERT INTO inventory_transaction (
+        transaction_id,
+        inventory_id,
+        user_id,
+        order_id,
+        transaction_type,
+        quantity_change,
+        transaction_date
+    )
     VALUES (
-        CONCAT('DEL-', UUID()), 
-        p_order_id, 
-        IF(p_delivery_mode='pickup', 'Store Pickup', 'Standard Delivery'), 
-        p_address_id, 
-        DATE_ADD(NOW(), INTERVAL v_delivery_days DAY), 
-        'pending'
-    );
-
-    -- Step 5: Create `payment` record
-    INSERT INTO payment (payment_id, order_id, payment_method, payment_status, amount)
-    VALUES (
-        CONCAT('PAY-', UUID()), 
-        p_order_id, 
-        IF(p_payment_method='cod', 'Cash on Delivery', 'Card Payment'), 
-        IF(p_payment_method='cod', 'pending', 'completed'), 
-        p_total_amount
+        UUID(),
+        v_inventory_id,
+        p_user_id,
+        NULL,
+        p_transaction_type,
+        p_quantity_change,
+        NOW()
     );
 
     COMMIT;
 END //
-
-DELIMITER;
+DELIMITER ;
