@@ -37,7 +37,12 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 - Variant attributes (colour, storage, etc.) are stored in `product_attribute`.
 - A product can belong to many categories (`product_category`).
 - Storefront: product list with backend filters (category, brand/name/SKU search, debounced), and a product detail page with variant chips, attributes and stock.
-- Product reviews and ratings: average rating, star breakdown, "show all" list, and a review form for logged-in customers (one review per customer per product).
+- Product reviews and ratings (product detail page):
+  - Summary box with the average (e.g. `3.4 /5`), star display and the number of ratings, plus a 5★ to 1★ breakdown bar chart. Stars are yellow everywhere for a familiar, consistent look.
+  - "Product Reviews" toolbar with **Sort** (Newest, Highest rating, Lowest rating) and **Filter** by star (All star, 5 star … 1 star). Both run in the browser on the list returned by the API.
+  - Review list as full-width rows (stars, date, reviewer name, text), showing the first 3 with a "Show all N reviews" / "Show fewer reviews" toggle.
+  - Review form for logged-in customers: interactive star picker with labels (Poor to Excellent), optional text (max 500 characters, with counter), and inline success or error messages. Submit stays disabled until a rating is chosen. Logged-out visitors see a "Log in" prompt. One review per customer per product.
+  - Reviews can also be submitted from the customer's orders page (`app/account/orders/page.js`) through the same endpoint.
 
 **API routes** (`/api/products`, `/api/categories`)
 
@@ -49,7 +54,7 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 | POST | `/api/products` | Create product |
 | PUT | `/api/products/:id` | Update product, categories, variants and attributes |
 | DELETE | `/api/products/:id` | Delete product |
-| GET | `/api/products/:id/reviews` | Reviews for a product (`getProductReviews`). Reviewer shown as `customer_name`, first name and last initial only (e.g. `Kalai S.`) |
+| GET | `/api/products/:id/reviews` | Reviews for a product, newest first (`getProductReviews`). Reviewer shown as `customer_name`, first name and last initial only (e.g. `Kalai S.`) |
 | POST | `/api/products/feedback` | Add a review (`addProductFeedback`). Body: `productId`, `customerId`, `rating` (whole number 1–5), `review` (up to 500 chars). Returns `201 { success: true }` |
 | GET | `/api/categories` | All categories |
 
@@ -67,7 +72,7 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 
 **Main files**
 - Backend: `controllers/productController.js`, `routes/productRoutes.js`, `routes/categoryRouter.js`, `utills/dbHelpers.js`
-- Frontend: `app/products/page.js`, `app/products/[id]/page.js`, `app/admin/products/` (list, new, `[id]/edit`)
+- Frontend: `app/products/page.js`, `app/products/[id]/page.js` (product detail, reviews section), `app/admin/products/` (list, new, `[id]/edit`)
 
 ### Member 2: _TODO_
 _Features, API routes, DB objects, pages._
