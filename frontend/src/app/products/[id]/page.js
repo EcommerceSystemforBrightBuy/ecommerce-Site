@@ -329,20 +329,12 @@ export default function ProductDetailPage({ params }) {
                 </div>
               </div>
 
-              {stockCount > 0 ? (
-                <div className="text-right">
-                  <span className="text-[11px] font-black text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 inline-flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                    In Stock ({stockCount})
-                  </span>
-                </div>
-              ) : (
-                <div className="text-right">
-                  <span className="text-[11px] font-black text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
-                    Backorder Buffer (+3d)
-                  </span>
-                </div>
-              )}
+              <div className="text-right">
+                <span className="text-[11px] font-bold text-neutral-800 bg-neutral-100 px-2.5 py-1 rounded-full border border-neutral-200 inline-flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  Austin Central WH
+                </span>
+              </div>
             </div>
 
             {/* Select Variant / Configuration */}
@@ -387,10 +379,8 @@ export default function ProductDetailPage({ params }) {
                       </div>
 
                       <div className="mt-1.5 pt-1.5 border-t border-[#EBEBEB] text-[10px] flex items-center justify-between">
-                        <span className={`font-bold ${vStock > 0 ? "text-emerald-700" : "text-amber-700"}`}>
-                          {vStock > 0 ? "In Stock" : "Backorder"}
-                        </span>
-                        <span className="text-[#717171] font-mono text-[9px]">{variant?.sku}</span>
+                        <span className="text-[#717171] font-semibold">SKU:</span>
+                        <span className="text-[#222222] font-mono text-[10px] font-bold">{variant?.sku}</span>
                       </div>
                     </button>
                   );
@@ -447,9 +437,7 @@ export default function ProductDetailPage({ params }) {
             <div className="flex items-center justify-between border-y border-[#EBEBEB] py-3">
               <div>
                 <span className="font-bold text-xs text-[#222222] block">Select Quantity</span>
-                <span className="text-[10px] text-[#717171]">
-                  {stockCount > 0 ? `${stockCount} available` : "Backorder reserve"}
-                </span>
+                <span className="text-[10px] text-[#717171]">Dispatch from Central WH</span>
               </div>
 
               <div className="flex items-center border border-[#DDDDDD] rounded-full p-1 bg-[#F7F7F7]">

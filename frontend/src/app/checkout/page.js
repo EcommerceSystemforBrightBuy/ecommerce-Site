@@ -140,12 +140,12 @@ export default function CheckoutAddressPage() {
                   <Truck className="w-4 h-4 text-[#FF385C]" />
                   <span>Standard Texas Delivery</span>
                 </div>
-                <span className="font-bold text-[#222222]">
-                  {cartSubtotal > 150 ? "FREE" : "$15.00"}
+                <span className="font-bold text-emerald-700">
+                  FREE
                 </span>
               </div>
               <p className="text-[#717171] text-xs leading-relaxed">
-                Dispatched from Central Warehouse in Austin. Main cities delivered in 5 business days,
+                Dispatched from Central Warehouse in Austin. 100% Free Texas Delivery statewide. Main cities delivered in 5 business days,
                 regional Texas in 7 days.
               </p>
             </div>
