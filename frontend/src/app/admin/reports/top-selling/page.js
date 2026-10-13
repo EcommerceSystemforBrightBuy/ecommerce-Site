@@ -97,8 +97,23 @@ export default function TopSellingProductsReportPage() {
                   </td>
 
                   <td className="py-4 px-6">
-                    <div className="font-bold text-[#222222] text-sm">{p.product_name}</div>
-                    <div className="text-[11px] text-[#717171]">Brand: {p.brand || "-"}</div>
+                    <div className="font-bold text-[#222222] text-sm">{p.name}</div>
+                    <div className="text-[11px] text-[#717171]">Brand: {p.brand}</div>
+                  </td>
+
+                  <td className="py-4 px-4">
+                    <span className="px-2.5 py-1 rounded-full bg-[#F7F7F7] text-[#222222] border border-[#DDDDDD] text-[10px] font-bold">
+                      {(Array.isArray(p.categories)
+                        ? p.categories
+                        : typeof p.categories === "string"
+                          ? p.categories.split(",")
+                          : []
+                      ).join(", ")}
+                    </span>
+                  </td>
+
+                  <td className="py-4 px-4 font-mono font-bold text-[#222222]">
+                    {p.topVariantSku}
                   </td>
 
                   <td className="py-4 px-4 font-bold text-emerald-700 text-sm">

@@ -9,6 +9,14 @@ import {
   Watch,
   Gamepad2,
   Sparkles,
+  Laptop,
+  Camera,
+  House,
+  Tablet,
+  Swords,
+  Dices,
+  GraduationCap,
+  Car,
 } from "lucide-react";
 
 export default function CategoryRibbon({ selectedCategory, onSelectCategory }) {
@@ -38,6 +46,22 @@ export default function CategoryRibbon({ selectedCategory, onSelectCategory }) {
       case "gaming":
       case "drones & gaming":
         return <Gamepad2 className="w-6 h-6" />;
+      case "laptops":
+        return <Laptop className="w-6 h-6" />;
+      case "cameras":
+        return <Camera className="w-6 h-6" />;
+      case "smarthome":
+        return <House className="w-6 h-6" />;
+      case "tablets":
+        return <Tablet className="w-6 h-6" />;
+      case "actionfigures":
+        return <Swords className="w-6 h-6" />;
+      case "boardgames":
+        return <Dices className="w-6 h-6" />;
+      case "edutoys":
+        return <GraduationCap className="w-6 h-6" />;
+      case "rcvehicles":
+        return <Car className="w-6 h-6" />;
       default:
         return <Sparkles className="w-6 h-6" />;
     }
