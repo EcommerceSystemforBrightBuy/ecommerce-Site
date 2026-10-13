@@ -246,8 +246,14 @@ export default function ProductsSearchPage() {
                       {item.name}
                     </span>
                     <div className="flex items-center gap-1 shrink-0 text-xs font-black">
-                      <Star className="w-3.5 h-3.5 fill-[#FF385C] text-[#FF385C]" />
-                      <span>{item.rating ? Number(item.rating).toFixed(1) : "5.0"}</span>
+                      {Number(item.rating) > 0 ? (
+                        <>
+                          <Star className="w-3.5 h-3.5 fill-[#FF385C] text-[#FF385C]" />
+                          <span>{Number(item.rating).toFixed(1)}</span>
+                        </>
+                      ) : (
+                        <span className="text-[#717171] font-normal">No rating</span>
+                      )}
                     </div>
                   </div>
 

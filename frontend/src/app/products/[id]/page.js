@@ -876,7 +876,7 @@ export default function ProductDetailPage({ params }) {
                             </time>
                           )}
                         </div>
-                        <p className="mt-1 text-xs text-[#717171]">{getReviewerName(rev)}</p>
+                        <p className="text-sm font-semibold text-[#222222]">{getReviewerName(rev)}</p>
                         {rev.review && (
                           <p className="mt-3 text-sm leading-relaxed text-[#222222]">{rev.review}</p>
                         )}
