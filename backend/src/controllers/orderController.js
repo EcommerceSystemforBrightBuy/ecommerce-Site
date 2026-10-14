@@ -432,10 +432,18 @@ exports.getPayHereParams = async (req, res) => {
             cancelUrl
         } = req.body || {};
 
-        const appId = process.env.APP_ID || process.env.PAYHERE_APP_ID || '4OVzEi2LPv64JEVO3QwZqU3Xe';
-        const appSecret = process.env.APP_secret || process.env.APP_SECRET || process.env.PAYHERE_APP_SECRET || '4ks4JbfYVPE4Dujqa4kqyz8Rks8mCDk9a4JHLDtLVnPc';
-        const merchantId = process.env.PAYHERE_MERCHANT_ID || process.env.MERCHANT_ID || '1211149';
+        const appId = process.env.PAYHERE_APP_ID || process.env.APP_ID;
+        const appSecret = process.env.PAYHERE_APP_SECRET || process.env.APP_SECRET;
+        const merchantId = process.env.PAYHERE_MERCHANT_ID || process.env.MERCHANT_ID;
         const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || appSecret;
+
+        if (!merchantId || !merchantSecret) {
+            console.error('PayHere configuration error: PAYHERE_MERCHANT_ID and PAYHERE_MERCHANT_SECRET must be set in environment variables.');
+            return res.status(500).json({
+                success: false,
+                error: 'PayHere gateway is not configured properly on the server. Please define environment variables.'
+            });
+        }
 
         const resolvedOrderId = orderId || `ORD-TX-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
         const resolvedAmount = parseFloat(totalAmount || amount || 0).toFixed(2);
@@ -493,18 +501,82 @@ exports.getPayHereParams = async (req, res) => {
     }
 };
 
-// 6. POST /api/orders/payhere-notify — PayHere IPN Webhook
+// 6. POST /api/orders/payhere-notify — PayHere IPN Webhook with cryptographic md5sig verification
 exports.handlePayHereNotify = async (req, res) => {
     try {
-        const { order_id, status_code, payhere_amount } = req.body || {};
-        console.log(`[PayHere Webhook] Order: ${order_id}, Status: ${status_code}, Amount: ${payhere_amount}`);
+        const {
+            merchant_id,
+            order_id,
+            payhere_amount,
+            payhere_currency,
+            status_code,
+            md5sig
+        } = req.body || {};
 
-        // Status code 2 indicates successful payment in PayHere Sandbox
+        console.log(`[PayHere Webhook] Order: ${order_id}, Status: ${status_code}, Amount: ${payhere_amount}, Currency: ${payhere_currency}`);
+
+        const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || process.env.PAYHERE_APP_SECRET;
+        const configuredMerchantId = process.env.PAYHERE_MERCHANT_ID || process.env.MERCHANT_ID;
+
+        if (!merchantSecret || !configuredMerchantId) {
+            console.error('[PayHere Webhook Error]: PayHere merchant credentials not configured in environment.');
+            return res.status(500).send('Server misconfiguration');
+        }
+
+        // Validate required IPN payload parameters
+        if (!md5sig || !merchant_id || !order_id || !payhere_amount || !payhere_currency || status_code === undefined) {
+            console.warn('[PayHere Webhook Warning]: Rejected IPN callback due to missing required parameters.');
+            return res.status(400).send('Bad Request: Incomplete IPN payload');
+        }
+
+        // Verify that the merchant ID in the notification matches our configured merchant ID
+        if (String(merchant_id).trim() !== String(configuredMerchantId).trim()) {
+            console.warn(`[PayHere Webhook Warning]: Unauthorized merchant_id: ${merchant_id} (expected: ${configuredMerchantId})`);
+            return res.status(403).send('Forbidden: Merchant ID mismatch');
+        }
+
+        // Cryptographic MD5 signature verification:
+        // strtoupper(md5(merchant_id + order_id + payhere_amount + payhere_currency + status_code + strtoupper(md5(merchant_secret))))
+        const hashedSecret = crypto
+            .createHash('md5')
+            .update(merchantSecret)
+            .digest('hex')
+            .toUpperCase();
+
+        const signatureInput = `${merchant_id}${order_id}${payhere_amount}${payhere_currency}${status_code}${hashedSecret}`;
+        const localMd5sig = crypto
+            .createHash('md5')
+            .update(signatureInput)
+            .digest('hex')
+            .toUpperCase();
+
+        if (localMd5sig !== String(md5sig).toUpperCase()) {
+            console.warn(`[PayHere Webhook Security Violation]: MD5 signature verification failed for Order: ${order_id}. Signature: ${md5sig}, Computed: ${localMd5sig}`);
+            return res.status(400).send('Bad Request: Invalid MD5 signature');
+        }
+
+        // Signature verified successfully. Update payment and order status according to status_code
+        // Status code 2: Success
         if (status_code == 2 || status_code == '2') {
             await pool.query(
-                `UPDATE payment SET payment_status = 'completed' WHERE order_id = ?`,
+                `UPDATE payment SET payment_status = 'completed', payment_date = NOW() WHERE order_id = ?`,
                 [order_id]
-            ).catch(() => {});
+            ).catch((err) => console.error('Error updating payment to completed:', err));
+
+            await pool.query(
+                `UPDATE \`order\` SET order_status = 'confirmed' WHERE order_id = ? AND order_status = 'pending'`,
+                [order_id]
+            ).catch((err) => console.error('Error updating order to confirmed:', err));
+
+            console.log(`[PayHere Webhook Success]: Order ${order_id} marked as completed.`);
+        } else if (status_code == -1 || status_code == -2 || status_code == '-1' || status_code == '-2') {
+            // Status code -1 (Canceled), -2 (Failed)
+            await pool.query(
+                `UPDATE payment SET payment_status = 'failed' WHERE order_id = ?`,
+                [order_id]
+            ).catch((err) => console.error('Error updating payment to failed:', err));
+
+            console.log(`[PayHere Webhook Status]: Order ${order_id} marked as payment failed (${status_code}).`);
         }
 
         return res.status(200).send('OK');

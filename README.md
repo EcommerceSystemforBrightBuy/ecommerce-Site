@@ -23,7 +23,7 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 | Member | Module | Status |
 |--------|--------|--------|
 | Member 1 – Kalai | Products, Variants & Catalogue | Done |
-| Member 2 | _TODO_ | _TODO_ |
+| Member 2 - Hasin Amanda| Order Processing & Atomic Checkout (End-to-End) | Done |
 | Member 3 | _TODO | _TODO |
 | Member 4 | _TODO_ | _TODO_ |
 | Member 5 | _TODO_ | _TODO_ |
