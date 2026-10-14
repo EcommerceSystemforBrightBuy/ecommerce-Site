@@ -74,8 +74,45 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 - Backend: `controllers/productController.js`, `routes/productRoutes.js`, `routes/categoryRouter.js`, `utills/dbHelpers.js`
 - Frontend: `app/products/page.js`, `app/products/[id]/page.js` (product detail, reviews section), `app/admin/products/` (list, new, `[id]/edit`)
 
-### Member 2: _TODO_
-_Features, API routes, DB objects, pages._
+### Member 2 – Hasin Amanda: Order Processing, Atomic Checkout & Initial UI Design
+
+**Responsibility**
+- Initial website UI creation & frontend architecture (design system, global layout, responsive navigation, and Airbnb-inspired component styling).
+- Customer checkout flow, atomic inventory deduction, PayHere gateway integration, and Admin Order Dispatch queue.
+
+**Features**
+- **Initial Website UI & Layout Architecture**:
+  - Architected the foundational Next.js frontend design system, global theme styling (`globals.css`), typography tokens, and responsive layout foundations.
+  - Implemented the sticky modern Navbar with Texas Central Warehouse stock pill indicators, destination city picker, animated expanding catalog navigation button, and live cart count pill.
+  - Created the dynamic Hero Banner carousel (`components/HeroCarousel.jsx`) featuring responsive image scaling, ambient backdrop blurring, automated rotation, and touch/mouse controls.
+  - Built customer storefront card components, Texas commerce value badges (Free Statewide Delivery, 24h Store Pickup, Central WH Stock, PayHere Gateway), and the interactive Side-by-Side Product Detail layout (`app/products/[id]/page.js`) pairing high-resolution hardware showcases with the sticky Buy Now reservation box.
+- **Atomic Checkout**: Orders are booked through a database stored procedure (`sp_checkout_order`) within an ACID transaction (`START TRANSACTION ... COMMIT / ROLLBACK`), inserting `order`, `order_item`, `delivery`, `payment`, and decrementing `inventory.quantity_on_hand` while recording audit logs into `inventory_transaction`.
+- **Negative Stock Prevention**: Database trigger `trg_prevent_negative_inventory` guarantees inventory levels can never drop below zero.
+- **PayHere Payment Gateway**: Supports Card payments via PayHere Sandbox with cryptographic MD5 signature verification (`md5sig`) on IPN notifications (`/api/orders/payhere-notify`) and Cash on Delivery (COD).
+- **Texas Ground Fulfillment**: Dynamic shipping calculations with Texas city tiers (5 business days for main metro hubs, 7 business days for regional Texas, +3 days replenishment buffer) and 24h store pickup option.
+- **Admin Dispatch Queue**: Live management interface for warehouse staff and administrators to inspect itemized order SKUs, verify payment confirmation, and advance order dispatch states (`pending` → `processing` → `dispatched` → `delivered`).
+
+**API routes** (`/api/orders`)
+
+| Method | Route | Purpose |
+|--------|-------|---------|
+| POST | `/api/orders` | Place order atomically via `sp_checkout_order` (body: customer details, items, delivery mode, address, payment method) |
+| GET | `/api/orders` | Fetch customer orders / admin dispatch queue (supports `?customer_id=...` filter) |
+| GET | `/api/orders/:id` | Fetch order details, customer contact, delivery info, and itemized variant SKUs |
+| PUT | `/api/orders/:id/status` | Update order and delivery dispatch status (`pending`, `dispatched`, `delivered`, `failed`) |
+| POST | `/api/orders/payhere-params` | Generate PayHere Sandbox checkout credentials, payload, and secure MD5 hash |
+| POST | `/api/orders/payhere-notify` | PayHere IPN webhook callback with server-side MD5 signature verification |
+
+**Database work**
+- **Stored Procedures**: `sp_checkout_order` in `backend/database/procedures.sql` for atomic order creation, primary item insertion, inventory decrement, delivery scheduling, and payment initialization.
+- **Triggers**: `trg_prevent_negative_inventory` in `backend/database/triggers.sql` (`BEFORE UPDATE ON inventory`) to prevent negative stock.
+- **Functions**: `fn_calculate_delivery_days(p_city_id, p_in_stock)` in `backend/database/functions.sql` with resolved parameter shadowing.
+- **Tables involved**: `order`, `order_item`, `delivery`, `payment`, `inventory`, `inventory_transaction`, `customer_address`, `city`.
+
+**Main files**
+- Frontend Core & UI Design: `components/Navbar.jsx`, `components/HeroCarousel.jsx`, `app/globals.css`, `app/layout.js`, `app/page.js` (home storefront & trust strip), `app/products/[id]/page.js` (side-by-side product view & Buy Now card)
+- Frontend Checkout & Dispatch: `app/checkout/page.js` (delivery mode & shipping address), `app/checkout/payment/page.js` (PayHere gateway / COD), `app/checkout/confirmation/page.js` (live order receipt), `app/admin/orders/page.js` (dispatch queue & live status updates)
+- Backend: `controllers/orderController.js`, `routes/orderRoutes.js`, `database/procedures.sql`, `database/triggers.sql`, `database/functions.sql`
 
 ### Member 3: Auth, Customer & Cart _(confirm and fill in)_
 _Registration and login (`/api/auth`), customer profile and addresses (`/api/customers`), cart (`/api/cart`), `sp_register_customer` procedure._
