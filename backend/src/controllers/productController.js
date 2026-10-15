@@ -5,7 +5,8 @@ const {
     insertVariant,
     insertAttributes,
     insertCategories,
-    validateVariant
+    validateVariant,
+    ValidationError
 } = require(`./../utills/dbHelpers`);
 
 const getAllProducts = async(req, res) => {
@@ -13,14 +14,19 @@ const getAllProducts = async(req, res) => {
         const {category, search} = req.query;
 
         let sql_query = 
-            `Select p.product_id,p.product_name as name,p.brand, round(AVG(f.rating), 1) as rating, count(distinct f.feedback_id) as reviewCount, 
-             p.description,p.image_url,v.price,v.sku,i.quantity_on_hand as stock,GROUP_CONCAT(DISTINCT c.category_name) as categories 
-             from product p 
-             left join product_variant v on p.product_id = v.product_id and  v.is_default = True and v.is_active = True 
-             left join inventory i on v.variant_id = i.variant_id 
-             left join product_feedback f on p.product_id = f.product_id 
-             left join product_category pc on p.product_id = pc.product_id 
-             left join category c on c.category_id = pc.category_id 
+            `Select p.product_id,p.product_name as name,p.brand, r.rating, coalesce(r.review_count, 0) as reviewCount,
+             p.description,p.image_url,v.price,v.sku,i.quantity_on_hand as stock,
+               (Select group_concat(c.category_name order by c.category_name) from product_category pc 
+                join category c on pc.category_id = c.category_id
+                where pc.product_id = p.product_id) as categories
+             from product p
+             left join product_variant v on p.product_id = v.product_id and v.is_default = True and v.is_active = True
+             left join inventory i on v.variant_id = i.variant_id
+             left join (
+                Select product_id, round(AVG(rating), 1) as rating, count(f.feedback_id) as review_count 
+                from product_feedback f
+                group by product_id
+             ) r on p.product_id = r.product_id
              where p.is_active = 1`;
         const params = [];
 
@@ -42,7 +48,7 @@ const getAllProducts = async(req, res) => {
             params.push(term, term, term);
         }
 
-        sql_query += ` GROUP BY p.product_id, p.product_name, p.brand, p.description, p.image_url, v.price, v.sku, i.quantity_on_hand`;
+        sql_query += ` GROUP BY p.product_id, p.product_name, p.brand, p.description, p.image_url, v.price, v.sku, i.quantity_on_hand, r.rating, r.review_count`;
 
         const [products] = await pool.execute(sql_query,params);
 
@@ -126,26 +132,44 @@ const getProductByID = async(req, res) =>{
                                               [req.params.id]
                                              );
 
-        //Adding attributes to variants
-        for(const v of temp_variants){
-            const [var_attributes] = await pool.execute(`Select attribute_name,attribute_value from product_attribute where variant_id = ?`,
-                                                        [v.variant_id]
-            );
+        //Adding attributes to variants in single
+        const variantAttributes = new Map();
+        if(temp_variants.length > 0){
+            const variantIds = temp_variants.map((v) => v.variant_id);
+            const placeholders = temp_variants.map(() => "?").join(",");
 
-            v.attributes = var_attributes;
-        }      
+            const[attributeRows] = await pool.execute(
+                `Select variant_id, attribute_name, attribute_value from product_attribute
+                 where variant_id in (${placeholders})
+                 order by attribute_id`,
+                 variantIds
+            )
+
+            for(const a of attributeRows){
+                if(!variantAttributes.has(a.variant_id)){
+                    variantAttributes.set(a.variant_id,[])
+                }
+
+                variantAttributes.get(a.variant_id).push({
+                    attribute_name : a.attribute_name,
+                    attribute_value : a.attribute_value
+                });
+            }
+        }
         
         const variants = temp_variants.map(v =>({
-            ...v, price: v.price != null ? parseFloat(v.price) : null
+            ...v, 
+            price: v.price != null ? parseFloat(v.price) : null,
+            attributes : variantAttributes.get(v.variant_id) ?? []
         }));
 
         
-        //Taking categories of the product 
+        //Taking categories of the product
         const [categories] =await pool.execute(
             `Select c.category_name 
-             from product p left 
+             from product p
              join product_category pc on p.product_id = pc.product_id 
-             left join category c on c.category_id = pc.category_id 
+             join category c on c.category_id = pc.category_id 
              where p.product_id = ?`,
             [req.params.id]
         )
@@ -182,7 +206,7 @@ const createProduct = async(req, res) => {
         await Connection.beginTransaction(); //Using transaction for keep ACID property
         
         //Generating product id
-        const product_id = await nextId(Connection, "product", "product_id", "PRD", 4);
+        const product_id = await nextId(Connection, "product", "product_id", "PRD", 3);
 
         await Connection.execute(
             "Insert into product (product_id, product_name, brand, badge, image_url, description, created_at) values (?,?,?,?,?,?,?)",
@@ -213,6 +237,15 @@ const createProduct = async(req, res) => {
     }catch(e){
         console.error(e);
         await Connection.rollback(); //Rolling back the transaction in case of an error
+        
+        if(e instanceof ValidationError){
+            return res.status(400).json({error : e.message});
+        }
+        if(e.code === "ER_DUP_ENTRY"){
+            res.status(400).json({error : "SKU already exists"});
+            return;
+        }
+        
         res.status(500).json({error : e.message || "Failed to insert product"});
     } finally {
         await Connection.release(); //Releasing the database connection
@@ -377,6 +410,10 @@ const updateProduct = async(req, res) =>{
         console.error(err);
         await Connection.rollback();
         
+        if(err instanceof ValidationError){
+            res.status(400).json({error : err.message});
+            return;
+        }
         if(err.code === "ER_DUP_ENTRY"){
             res.status(400).json({error : "SKU already exists"});
             return;
@@ -398,17 +435,17 @@ const deleteProduct =async(req, res) =>{
             return res.status(404).json({error : "Product not found"});
         }  
         
-        await pool.execute("Delete from product where product_id = ?", [req.params.id]);
+        await pool.execute(`
+            Update product set is_active = 0 where product_id = ?`,
+             [
+                req.params.id
+            ]
+        );
+        
         res.status(200).json({message : "Product successfully deleted"});
     } catch (err) {
-        if(err.code === "ER_ROW_IS_REFERENCED_2") {
-            return res.status(400).json({error : "Cannot delete product as it is referenced in other tables"});
-        }
-        
         console.error(err);
         res.status(500).json({error : "Failed to delete product"});
-        
-        //We don`t have to catch foreign key delete errors because we handle that in schema.sql by cascade delete.
     }
 }
 

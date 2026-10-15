@@ -114,8 +114,56 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 - Frontend Checkout & Dispatch: `app/checkout/page.js` (delivery mode & shipping address), `app/checkout/payment/page.js` (PayHere gateway / COD), `app/checkout/confirmation/page.js` (live order receipt), `app/admin/orders/page.js` (dispatch queue & live status updates)
 - Backend: `controllers/orderController.js`, `routes/orderRoutes.js`, `database/procedures.sql`, `database/triggers.sql`, `database/functions.sql`
 
-### Member 3: Auth, Customer & Cart _(confirm and fill in)_
-_Registration and login (`/api/auth`), customer profile and addresses (`/api/customers`), cart (`/api/cart`), `sp_register_customer` procedure._
+### Member 3 – Nimsara R.P.S. (240464N): Customer Auth, Profile & Cart
+
+**Features**
+- Customer registration: name, email, phone, Texas city (loaded from the database), street address, ZIP and password with confirmation. The server validates every field. The new account, customer record and default address are created in one database transaction, and the customer is signed in straight away.
+- Customer login: email and password are checked against a bcrypt hash (`bcryptjs`, 10 rounds). Passwords are never stored or returned in plain text. An unknown email and a wrong password give the same error message, so the form cannot be used to find out which emails are registered. Only `customer` accounts can use this login.
+- Login persistence: the signed-in customer is kept in `localStorage` (`brightbuy_user`) and restored when the page reloads (`ShopContext.jsx`).
+- Profile page (`/account`): shows the customer's details and lets them change their phone number and default delivery address. Phone and address are updated in one transaction, so both change or neither does.
+- Persistent cart: for a registered customer the cart is stored in the database (`cart`, `cart_item`), so it survives logout and reload. Adding a variant that is already in the cart increases its quantity. Quantities are limited to 1–99.
+- Guest cart: guests can browse and fill a cart, which is kept in `localStorage` (`brightbuy_guest_cart`). Checkout needs a registered customer. When a guest signs in or registers, the guest cart is merged into the saved cart in one transaction (`POST /api/cart/sync`).
+- The cart page shows live stock for each item. Out-of-stock items are allowed and shown as backorder (+3 days delivery).
+
+**API routes** (`/api/auth`, `/api/customers`, `/api/cart`, `/api/cities`)
+
+| Method | Route | Purpose |
+|--------|-------|---------|
+| POST | `/api/auth/register` | Register a customer (calls `sp_register_customer`) |
+| POST | `/api/auth/login` | Customer login, returns the customer profile |
+| GET | `/api/customers/:id` | Customer profile with default address and city |
+| PUT | `/api/customers/:id` | Update phone and/or default address (city, street, ZIP) |
+| GET | `/api/cart/:customerId` | Saved cart with product, variant, price and live stock |
+| POST | `/api/cart/items` | Add an item (quantity is added to any existing quantity) |
+| PUT | `/api/cart/items` | Set an exact quantity (`0` removes the item) |
+| DELETE | `/api/cart/:customerId/items/:variantId` | Remove one item |
+| DELETE | `/api/cart/:customerId` | Empty the cart |
+| POST | `/api/cart/sync` | Merge a guest cart into the saved cart after login (one transaction) |
+| GET | `/api/cities` | Texas cities for the register and profile forms |
+
+`POST /api/auth/admin-login` (staff portal login) was added later by Member 2 together with the admin pages.
+
+**Registration behaviour**
+- Missing fields, an invalid email or a password shorter than 6 characters return `400`.
+- A registered email returns `409 An account with this email already exists` (raised by the procedure with `SIGNAL`, and also protected by the unique key `uq_user_email`).
+- An unknown city returns `400 Please choose a valid Texas city`.
+- A wrong email or password returns `401 Invalid email or password`.
+
+**Database work** (`backend/database/member3_auth_cart.sql`)
+- Stored procedure `sp_register_customer`: runs `START TRANSACTION`, inserts into `user`, `customer` and `customer_address`, then `COMMIT`. An `EXIT HANDLER FOR SQLEXCEPTION` does `ROLLBACK` and `RESIGNAL`, so a failure leaves nothing half-created. It checks for a duplicate email and an unknown city first (`SIGNAL SQLSTATE '45000'` with `EMAIL_EXISTS` / `INVALID_CITY`), builds the ids with `UUID()` so two registrations at the same moment cannot clash, and returns the new `user_id`, `customer_id` and `address_id`.
+- Seed data: 13 Texas cities in `city` (5 main cities, 8 regional) with `INSERT IGNORE`. `customer_address.city_id` is a foreign key, so these rows are needed before anyone can register.
+- Cart: one cart per customer (`uq_cart_customer`) and one row per variant per cart (`uq_cart_variant`). Adding an item uses `INSERT ... ON DUPLICATE KEY UPDATE`, so the database itself prevents duplicate rows. `chk_cart_item_qty` rejects quantities below 1, and cart items are removed automatically if their variant is deleted (`ON DELETE CASCADE`).
+- Tables involved: `user`, `customer`, `customer_address`, `city`, `cart`, `cart_item`.
+- All queries are parameterised (`?`) to prevent SQL injection, and the password hash is never sent to the browser.
+
+**Main files**
+- Database: `backend/database/member3_auth_cart.sql`
+- Backend: `controllers/authController.js`, `controllers/customerController.js`, `controllers/cartController.js`, `routes/authRoutes.js`, `routes/customerRoutes.js`, `routes/cartRoutes.js`, `routes/cityRoutes.js`, `scripts/resetSeedPasswords.js`
+- Frontend: `app/login/page.js`, `app/register/page.js`, `app/account/page.js`, `app/cart/page.js`, `context/ShopContext.jsx`
+
+**Notes and limitations**
+- There is no token (JWT) or session check on the server. The API trusts the `customerId` it is sent, so a customer's profile and cart could be read by anyone who knows the id. Adding JWT and an auth middleware is the next step.
+- There is no password reset, email verification or limit on login attempts.
 
 ### Member 4: Staff Personnel & Central Warehouse Inventory (End-to-End)
 
@@ -149,7 +197,7 @@ _Registration and login (`/api/auth`), customer profile and addresses (`/api/cus
 - Frontend Admin Staff: `src/app/admin/staff/page.js` (directory list), `src/app/admin/staff/new/page.js` (onboarding form), `src/app/admin/staff/[id]/edit/page.js` (profile editor)
 - Backend: `src/controllers/staffController.js`, `src/routes/staffRoutes.js`, `database/functions.sql`
 
-### Member 5 – Abeykoon AJPGP. (<240009C>): Executive Management Reports
+### Member 5 – Abeykoon AJPGP. (240009C): Executive Management Reports
 
 **Features**
 - Five management reports, each built the same way: a SQL view in MySQL, an Express endpoint that reads the view, and an admin page that displays it.
