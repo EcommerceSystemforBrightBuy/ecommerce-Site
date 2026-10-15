@@ -84,7 +84,7 @@ export default function AdminProductsPage() {
         }
 
         setProducts((prev) => prev.filter((item) => item.product_id !== deleteProduct.product_id));
-        setActionSuccess(`Product "${deleteProduct.name}" removed from Texas database.`);
+        setActionSuccess(`Product "${deleteProduct.name}" removed from the catalog.`);
         setDeleteProduct(null);
         setTimeout(() => setActionSuccess(""), 3000);
 
@@ -359,7 +359,7 @@ export default function AdminProductsPage() {
             <div className="text-center space-y-1">
               <h3 className="text-lg font-black text-[#222222]">Delete Product?</h3>
               <p className="text-xs text-[#717171]">
-                Are you sure you want to remove <strong>"{deleteProduct.name}"</strong> and all associated warehouse SKUs from the Texas database?
+                Are you sure you want to remove <strong>"{deleteProduct.name}"</strong> from the catalog? It will be hidden from the store, but existing orders are kept.
               </p>
             </div>
 

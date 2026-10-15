@@ -185,6 +185,7 @@ CREATE TABLE product_attribute (
     variant_id VARCHAR(50) NOT NULL,
     attribute_name VARCHAR(100) NOT NULL,
     attribute_value VARCHAR(100) NOT NULL,
+    UNIQUE KEY uq_attribute_variant_name (variant_id, attribute_name),
     CONSTRAINT pk_product_attribute PRIMARY KEY (attribute_id),
     CONSTRAINT fk_attribute_variant FOREIGN KEY (variant_id) REFERENCES product_variant (variant_id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB;
