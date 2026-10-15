@@ -26,7 +26,7 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 | Member 2 | _TODO_ | _TODO_ |
 | Member 3 | _TODO | _TODO |
 | Member 4 | _TODO_ | _TODO_ |
-| Member 5 | _TODO_ | _TODO_ |
+| Member 5 - Gayashan | Management Reports (SQL views and admin report pages) | Done |
 
 ### Member 1 – Kalaippiriyan J(240308R): Products, Variants & Catalogue
 
@@ -83,8 +83,47 @@ _Registration and login (`/api/auth`), customer profile and addresses (`/api/cus
 ### Member 4: _TODO_
 _Features, API routes, DB objects, pages._
 
-### Member 5: _TODO_
-_Features, API routes, DB objects, pages._
+### Member 5 – Abeykoon AJPGP. (<240009C>): Executive Management Reports
+
+**Features**
+- Five management reports, each built the same way: a SQL view in MySQL, an Express endpoint that reads the view, and an admin page that displays it.
+- Report 1, **Quarterly sales**: orders, units and revenue per quarter, with a year selector and summary cards (total revenue, orders, average order value).
+- Report 2, **Top-selling products**: products ranked by units sold, then gross revenue, with a period selector (This Month, This Quarter, Year-to-Date, All Time).
+- Report 3, **Category-wise orders**: number of orders per category, shown as bars with a share percentage. Categories with no orders still appear with 0.
+- Report 4, **Delivery time estimates**: upcoming (not delivered, not cancelled) orders with destination city, main or regional city, delivery status, estimated arrival date and days remaining. Past-due orders are flagged "Overdue".
+- Report 5, **Customer order summary**: every registered customer with lifetime orders, total spent, Card vs Cash on Delivery counts, and paid vs pending payments. Includes a name/email search.
+- Every report page has loading, error and "no data" states and a print button. A reports directory page links to all five.
+
+**API routes** (`/api/reports`)
+
+| Method | Route | Purpose |
+|--------|-------|---------|
+| GET | `/api/reports/quarterly-sales?year=2026` | Quarterly sales for a year (defaults to the current year) |
+| GET | `/api/reports/top-selling?period=ytd` | Top 10 products. `period`: `month`, `quarter`, `ytd`, `all` |
+| GET | `/api/reports/category-orders` | Order count per category |
+| GET | `/api/reports/delivery-estimates` | Upcoming deliveries, ordered by estimated arrival date |
+| GET | `/api/reports/customer-summary` | Per-customer order and payment summary, highest spend first |
+
+**Database work** (`backend/database/views.sql`)
+- `v_quarterly_sales`: groups by `YEAR` and `QUARTER` of `order_date`. Revenue is `SUM(order_item.subtotal)`, not `order.total_amount`, so orders with several items are not double counted. `COUNT(DISTINCT order_id)` gives the order count.
+- `v_top_selling_products`: joins `order_item` to `product_variant` to `product`, because sales are recorded per variant but reported per product. It returns one row per product per day, so Express can filter by period and add the days up.
+- `v_category_order_totals`: starts from `category` with `LEFT JOIN`s so empty categories are kept. An order containing products from two categories counts once in each.
+- `v_delivery_time_estimates`: joins `order`, `delivery`, `customer`, `user`, and reaches the city through `delivery_address_id` to `customer_address` to `city`. These are `LEFT JOIN`s, so Store Pickup orders and orders without an address still appear. `days_remaining` is `DATEDIFF(estimated_delivery_date, CURDATE())`.
+- `v_customer_order_summary`: starts from `customer` so customers with no orders appear. Uses `SUM(payment_method = 'Card Payment')`-style counts and `COALESCE` to turn NULL into 0.
+- Cancelled orders are excluded from every report.
+- A view cannot take parameters, so the views return all years and dates, and the filters (`WHERE sales_year = ?`, `WHERE sales_date >= ?`) are applied in the Express query.
+- Query results are converted with `Number()` / `parseFloat()` before being sent, because MySQL returns `SUM` and `DECIMAL` values as strings.
+- Views only read data, so they are always current and never need refreshing. Re-run `views.sql` only when a view's definition changes.
+
+**Main files**
+- Database: `backend/database/views.sql`
+- Backend: `controllers/reportController.js`, `routes/reportRoutes.js` (registered in `server.js` as `/api/reports`)
+- Frontend: `app/admin/reports/page.js` (directory), and `quarterly-sales`, `top-selling`, `category-orders`, `delivery-estimates`, `customer-summary` (each `page.js`)
+
+**Notes and limitations**
+- The report endpoints have no login or role check yet (see the authentication note below), so anyone who knows the URL can read them.
+- The top-selling report shows the top 10 products only.
+- The delivery report shows the estimated date stored by checkout. The 5-day / 7-day / +3-day rule is calculated at order time, not in this report.
 
 ---
 
