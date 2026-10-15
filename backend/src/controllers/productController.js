@@ -428,20 +428,18 @@ const updateProduct = async(req, res) =>{
 
 const deleteProduct =async(req, res) =>{
     try {
-        //Checking if the product is in the db
-        const [dummy_product] = await pool.execute("Select * from product where product_id = ?", [req.params.id]); 
-        
-        if(dummy_product.length === 0){
-            return res.status(404).json({error : "Product not found"});
-        }  
-        
-        await pool.execute(`
-            Update product set is_active = 0 where product_id = ?`,
+        // Soft delete; no rows affected means missing or already deleted
+        const [result] = await pool.execute(`
+            Update product set is_active = 0 where product_id = ? and is_active = 1`,
              [
                 req.params.id
             ]
         );
-        
+
+        if(result.affectedRows === 0){
+            return res.status(404).json({error : "Product not found"});
+        }
+
         res.status(200).json({message : "Product successfully deleted"});
     } catch (err) {
         console.error(err);
