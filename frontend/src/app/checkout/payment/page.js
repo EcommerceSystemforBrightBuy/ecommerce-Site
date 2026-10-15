@@ -575,7 +575,7 @@ export default function CheckoutPaymentPage() {
             <div className="p-4 bg-[#F7F7F7] rounded-2xl border border-[#EBEBEB] space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-[#717171]">Merchant ID:</span>
-                <span className="font-mono font-bold text-[#222222]">{payhereData?.merchant_id || "1211149"}</span>
+                <span className="font-mono font-bold text-[#222222]">{payhereData?.merchant_id || "-"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#717171]">Order Reference:</span>
