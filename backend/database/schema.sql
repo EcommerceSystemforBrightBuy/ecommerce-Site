@@ -120,8 +120,6 @@ CREATE TABLE category (
     CONSTRAINT uq_category_name UNIQUE (category_name)
 ) ENGINE = InnoDB;
 
-CREATE INDEX idx_category_name ON category (category_name);
-
 CREATE TABLE subcategory (
     subcategory_id VARCHAR(50) NOT NULL,
     category_id VARCHAR(50) NOT NULL,
@@ -176,7 +174,7 @@ CREATE TABLE product_variant (
     CONSTRAINT fk_variant_product FOREIGN KEY (product_id) REFERENCES product (product_id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB;
 
-CREATE INDEX idx_variant_product_default ON product_variant (product_id, is_default);
+CREATE INDEX idx_variant_product_default ON product_variant (product_id, is_default, is_active);
 
 -- 9. Product Variant Attributes (Color, Storage, Size, etc.)
 
