@@ -44,15 +44,15 @@ function ConfirmationContent() {
                 orderId: data.order.order_id,
                 date: data.order.order_date
                   ? new Date(data.order.order_date).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
                   : new Date().toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    }),
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  }),
                 customer: {
                   name:
                     data.order.customer_name ||
@@ -75,21 +75,21 @@ function ConfirmationContent() {
                 totalDue: parseFloat(data.order.total_amount || 0),
                 estimatedArrival: data.order.estimated_delivery_date
                   ? `Estimated ${new Date(data.order.estimated_delivery_date).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}`
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}`
                   : "In 5 Business Days",
                 items: Array.isArray(data.items)
                   ? data.items.map((it) => ({
-                      product: { name: it.product_name },
-                      variant: {
-                        name: it.variant_name || "Standard",
-                        sku: it.sku || "-",
-                        price: parseFloat(it.unit_price || 0),
-                      },
-                      quantity: it.quantity || 1,
-                    }))
+                    product: { name: it.product_name },
+                    variant: {
+                      name: it.variant_name || "Standard",
+                      sku: it.sku || "-",
+                      price: parseFloat(it.unit_price || 0),
+                    },
+                    quantity: it.quantity || 1,
+                  }))
                   : [],
               };
 
@@ -128,7 +128,7 @@ function ConfirmationContent() {
               }
             }
           }
-        } catch {}
+        } catch { }
       }
 
       // 4. If current user is logged in, fetch their latest real order from DB
@@ -149,10 +149,10 @@ function ConfirmationContent() {
                     orderId: detailData.order.order_id,
                     date: detailData.order.order_date
                       ? new Date(detailData.order.order_date).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
                       : "Recent",
                     customer: {
                       name: detailData.order.customer_name || currentUser.name,
@@ -168,21 +168,21 @@ function ConfirmationContent() {
                     totalDue: parseFloat(detailData.order.total_amount || 0),
                     estimatedArrival: detailData.order.estimated_delivery_date
                       ? `Estimated ${new Date(detailData.order.estimated_delivery_date).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}`
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}`
                       : "In 5 Business Days",
                     items: Array.isArray(detailData.items)
                       ? detailData.items.map((it) => ({
-                          product: { name: it.product_name },
-                          variant: {
-                            name: it.variant_name || "Standard",
-                            sku: it.sku || "-",
-                            price: parseFloat(it.unit_price || 0),
-                          },
-                          quantity: it.quantity || 1,
-                        }))
+                        product: { name: it.product_name },
+                        variant: {
+                          name: it.variant_name || "Standard",
+                          sku: it.sku || "-",
+                          price: parseFloat(it.unit_price || 0),
+                        },
+                        quantity: it.quantity || 1,
+                      }))
                       : [],
                   };
 
