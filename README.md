@@ -22,23 +22,24 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 
 | Member | Module | Status |
 |--------|--------|--------|
-| Member 1 – Kalai | Products, Variants & Catalogue | Done |
-| Member 2 - Hasin Amanda| Order Processing & Atomic Checkout (End-to-End) | Done |
-| Member 3 | Auth, Customer & Cart | _TODO_ |
-| Member 4 - Thimira Nuraj | Staff Personnel & Central Warehouse Inventory | Done |
-| Member 5 - Gayashan | Management Reports (SQL views and admin report pages) | Done |
+| Member 1 – Kalaippiriyan J (240308R) | Products, Variants & Catalogue | Done |
+| Member 2 – Hasin Amanda (240029L) | Order Processing & Atomic Checkout (End-to-End) | Done |
+| Member 3 – Nimsara R.P.S. (240464N) | Customer Auth, Profile & Cart | Done |
+| Member 4 – Thimira Nuraj (240272A) | Staff Personnel & Central Warehouse Inventory | Done |
+| Member 5 – Gayashan (240009C) | Management Reports (SQL views and admin report pages) | Done |
 
-### Member 1 – Kalaippiriyan J(240308R): Products, Variants & Catalogue
+### Member 1 – Kalaippiriyan J (240308R): Products, Variants & Catalogue
 
 **Features**
 - Product CRUD for admins (create, edit, list, delete) with server-side validation. Create and update run inside a database transaction, so a failure rolls everything back.
 - Products have many variants. Each variant has its own SKU, price, stock and default flag.
 - Variants use soft delete (`product_variant.is_active`), so history is kept. A default variant is always kept active (fallback is re-assigned).
-- Variant attributes (colour, storage, etc.) are stored in `product_attribute`.
+- Products use soft delete too. Orders reference variants with a `RESTRICT` foreign key, so a product that has been ordered cannot be hard-deleted. It is hidden from the store and the admin list instead (`product.is_active = 0`).
+- Variant attributes (colour, storage, etc.) are stored in `product_attribute`. A variant cannot have two attributes with the same name.
 - A product can belong to many categories (`product_category`).
 - Storefront: product list with backend filters (category, brand/name/SKU search, debounced), and a product detail page with variant chips, attributes and stock.
 - Product reviews and ratings (product detail page):
-  - Summary box with the average (e.g. `3.4 /5`), star display and the number of ratings, plus a 5★ to 1★ breakdown bar chart. Stars are yellow everywhere for a familiar, consistent look.
+  - Summary box with the average (e.g. `3.4 /5`), star display and the number of ratings, plus a 5★ to 1★ breakdown bar chart.
   - "Product Reviews" toolbar with **Sort** (Newest, Highest rating, Lowest rating) and **Filter** by star (All star, 5 star … 1 star). Both run in the browser on the list returned by the API.
   - Review list as full-width rows (stars, date, reviewer name, text), showing the first 3 with a "Show all N reviews" / "Show fewer reviews" toggle.
   - Review form for logged-in customers: interactive star picker with labels (Poor to Excellent), optional text (max 500 characters, with counter), and inline success or error messages. Submit stays disabled until a rating is chosen. Logged-out visitors see a "Log in" prompt. One review per customer per product.
@@ -51,9 +52,9 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 | GET | `/api/products` | List products (query: `category`, `search`) |
 | GET | `/api/products/admin` | Products with variants for the admin list |
 | GET | `/api/products/:id` | Product detail with active variants and attributes |
-| POST | `/api/products` | Create product |
-| PUT | `/api/products/:id` | Update product, categories, variants and attributes |
-| DELETE | `/api/products/:id` | Delete product |
+| POST | `/api/products` | Create product. Validation errors return `400`, a duplicate SKU returns `409` |
+| PUT | `/api/products/:id` | Update product, categories, variants and attributes (same error codes) |
+| DELETE | `/api/products/:id` | Remove a product (soft delete: sets `is_active = 0`, so ordered products and their history are kept) |
 | GET | `/api/products/:id/reviews` | Reviews for a product, newest first (`getProductReviews`). Reviewer shown as `customer_name`, first name and last initial only (e.g. `Kalai S.`) |
 | POST | `/api/products/feedback` | Add a review (`addProductFeedback`). Body: `productId`, `customerId`, `rating` (whole number 1–5), `review` (up to 500 chars). Returns `201 { success: true }` |
 | GET | `/api/categories` | All categories |
@@ -66,15 +67,16 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 
 **Database work**
 - Tables: `product`, `product_variant`, `product_attribute`, `category`, `product_category`, `inventory`, `product_feedback`.
-- Indexes: composite `idx_variant_product_default (product_id, is_default, is_active)`, `idx_product_brand`, `idx_attribute_variant`, plus unique keys `uq_variant_sku`, `uq_category_name`, `uq_feedback (product_id, customer_id)`.
+- Indexes: composite `idx_variant_product_default (product_id, is_default, is_active)`, `idx_product_brand`, `idx_attribute_variant`, plus unique keys `uq_variant_sku`, `uq_category_name`, `uq_feedback (product_id, customer_id)` and `uq_attribute_variant_name (variant_id, attribute_name)`.
+- The product detail endpoint loads the attributes of all variants in one batched `IN` query instead of one query per variant (no N+1). Ordering by `(variant_id, attribute_id)` matches the index, so `EXPLAIN` shows a range scan with no filesort.
 - All queries are parameterised (`?`) to prevent SQL injection.
-- Shared helpers in `backend/src/utills/dbHelpers.js` (`nextId`, `validateVariant`, `insertVariant`, `insertAttributes`, `insertCategories`).
+- Shared helpers in `backend/src/utills/dbHelpers.js` (`nextId`, `validateVariant`, `insertVariant`, `insertAttributes`, `insertCategories`, `ValidationError`).
 
 **Main files**
 - Backend: `controllers/productController.js`, `routes/productRoutes.js`, `routes/categoryRouter.js`, `utills/dbHelpers.js`
-- Frontend: `app/products/page.js`, `app/products/[id]/page.js` (product detail, reviews section), `app/admin/products/` (list, new, `[id]/edit`)
+- Frontend: `app/products/page.js`, `app/products/[id]/page.js` (variants, attributes and reviews section), `app/admin/products/` (list, new, `[id]/edit`)
 
-### Member 2 – Hasin Amanda: Order Processing, Atomic Checkout & Initial UI Design
+### Member 2 – Hasin Amanda (240029L): Order Processing, Atomic Checkout & Initial UI Design
 
 **Responsibility**
 - Initial website UI creation & frontend architecture (design system, global layout, responsive navigation, and Airbnb-inspired component styling).
@@ -85,7 +87,7 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
   - Architected the foundational Next.js frontend design system, global theme styling (`globals.css`), typography tokens, and responsive layout foundations.
   - Implemented the sticky modern Navbar with Texas Central Warehouse stock pill indicators, destination city picker, animated expanding catalog navigation button, and live cart count pill.
   - Created the dynamic Hero Banner carousel (`components/HeroCarousel.jsx`) featuring responsive image scaling, ambient backdrop blurring, automated rotation, and touch/mouse controls.
-  - Built customer storefront card components, Texas commerce value badges (Free Statewide Delivery, 24h Store Pickup, Central WH Stock, PayHere Gateway), and the interactive Side-by-Side Product Detail layout (`app/products/[id]/page.js`) pairing high-resolution hardware showcases with the sticky Buy Now reservation box.
+  - Built customer storefront card components, Texas commerce value badges (Free Statewide Delivery, 24h Store Pickup, Central WH Stock, PayHere Gateway), and the interactive Side-by-Side Product Detail layout (`app/products/[id]/page.js`) pairing high-resolution hardware showcases with the sticky Buy Now reservation box. (The variant, attribute and review sections on that page are Member 1's.)
 - **Atomic Checkout**: Orders are booked through a database stored procedure (`sp_checkout_order`) within an ACID transaction (`START TRANSACTION ... COMMIT / ROLLBACK`), inserting `order`, `order_item`, `delivery`, `payment`, and decrementing `inventory.quantity_on_hand` while recording audit logs into `inventory_transaction`.
 - **Negative Stock Prevention**: Database trigger `trg_prevent_negative_inventory` guarantees inventory levels can never drop below zero.
 - **PayHere Payment Gateway**: Supports Card payments via PayHere Sandbox with cryptographic MD5 signature verification (`md5sig`) on IPN notifications (`/api/orders/payhere-notify`) and Cash on Delivery (COD).
@@ -106,11 +108,11 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 **Database work**
 - **Stored Procedures**: `sp_checkout_order` in `backend/database/procedures.sql` for atomic order creation, primary item insertion, inventory decrement, delivery scheduling, and payment initialization.
 - **Triggers**: `trg_prevent_negative_inventory` in `backend/database/triggers.sql` (`BEFORE UPDATE ON inventory`) to prevent negative stock.
-- **Functions**: `fn_calculate_delivery_days(p_city_id, p_in_stock)` in `backend/database/functions.sql` with resolved parameter shadowing.
+- **Functions**: `fn_calculate_delivery_days(p_city_id, p_in_stock)` in `backend/database/functions.sql` with resolved parameter shadowing. It is also used by the inventory module for delivery estimates.
 - **Tables involved**: `order`, `order_item`, `delivery`, `payment`, `inventory`, `inventory_transaction`, `customer_address`, `city`.
 
 **Main files**
-- Frontend Core & UI Design: `components/Navbar.jsx`, `components/HeroCarousel.jsx`, `app/globals.css`, `app/layout.js`, `app/page.js` (home storefront & trust strip), `app/products/[id]/page.js` (side-by-side product view & Buy Now card)
+- Frontend Core & UI Design: `components/Navbar.jsx`, `components/HeroCarousel.jsx`, `app/globals.css`, `app/layout.js`, `app/page.js` (home storefront & trust strip), `app/products/[id]/page.js` (side-by-side layout & Buy Now card)
 - Frontend Checkout & Dispatch: `app/checkout/page.js` (delivery mode & shipping address), `app/checkout/payment/page.js` (PayHere gateway / COD), `app/checkout/confirmation/page.js` (live order receipt), `app/admin/orders/page.js` (dispatch queue & live status updates)
 - Backend: `controllers/orderController.js`, `routes/orderRoutes.js`, `database/procedures.sql`, `database/triggers.sql`, `database/functions.sql`
 
@@ -165,7 +167,7 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 - There is no token (JWT) or session check on the server. The API trusts the `customerId` it is sent, so a customer's profile and cart could be read by anyone who knows the id. Adding JWT and an auth middleware is the next step.
 - There is no password reset, email verification or limit on login attempts.
 
-### Member 4: Staff Personnel & Central Warehouse Inventory (End-to-End)
+### Member 4 – Thimira Nuraj (240272A): Staff Personnel & Central Warehouse Inventory (End-to-End)
 
 **Responsibility**
 - Staff onboarding, roles, status tracking, and directory CRUD.
@@ -173,7 +175,6 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 
 **Features**
 - **Warehouse Inventory & Stock Adjustments**: Real-time warehouse catalog view displaying all SKUs, stock levels, and replenishment status with quick one-click increment/decrement adjustments (`+10`, `-1`). Every adjustment automatically records an audit log in `inventory_transaction`.
-- **Dynamic Delivery Transit Days Calculation**: Stored function `fn_calculate_delivery_days` calculates delivery transit duration based on destination Texas city tiers (5 business days for main hubs vs 7 business days for regional hubs, with an additional +3 day buffer if stock is depleted).
 - **Staff Personnel Management**: Complete lifecycle directory for warehouse staff and administrators (view hub staff, onboard new personnel, edit profile details/hubs, and deactivate/delete staff records) updating Aiven MySQL live.
 
 **API routes** (`/api/inventory`, `/api/staff`)
@@ -188,14 +189,13 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 | DELETE | `/api/staff/:id` | Remove or deactivate staff member |
 
 **Database work**
-- **Stored Functions**: `fn_calculate_delivery_days(p_city_id, p_in_stock)` in `backend/database/functions.sql` calculating dynamic Texas delivery estimates.
 - **Transactional Queries**: Atomic inventory updates and transaction logging (`inventory`, `inventory_transaction`).
 - **Tables involved**: `staff_profile`, `user`, `inventory`, `inventory_transaction`, `city`, `product_variant`.
 
 **Main files**
 - Frontend Admin Inventory: `src/app/admin/inventory/page.js` (stock list and `+10`/`-1` adjustment actions)
 - Frontend Admin Staff: `src/app/admin/staff/page.js` (directory list), `src/app/admin/staff/new/page.js` (onboarding form), `src/app/admin/staff/[id]/edit/page.js` (profile editor)
-- Backend: `src/controllers/staffController.js`, `src/routes/staffRoutes.js`, `database/functions.sql`
+- Backend: `src/controllers/staffController.js`, `src/routes/staffRoutes.js`
 
 ### Member 5 – Abeykoon AJPGP. (240009C): Executive Management Reports
 
