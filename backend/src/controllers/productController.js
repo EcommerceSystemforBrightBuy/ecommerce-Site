@@ -1,31 +1,54 @@
-const pool = require('./../config/db')
+const pool = require(`./../config/db`)
+const { randomUUID } = require("crypto");
 const {
     nextId,
     insertVariant,
     insertAttributes,
     insertCategories,
-    validateVariant
-} = require('./../utills/dbHelpers');
+    validateVariant,
+    ValidationError
+} = require(`./../utills/dbHelpers`);
 
 const getAllProducts = async(req, res) => {
     try{
         const {category, search} = req.query;
 
-        let sql_query = 'Select p.product_id,p.product_name as name,p.brand, round(AVG(f.rating), 1) as rating, count(distinct f.feedback_id) as reviewCount, p.description,p.image_url,v.price,v.sku,i.quantity_on_hand as stock,GROUP_CONCAT(DISTINCT c.category_name) as categories from product p left join product_variant v on p.product_id = v.product_id and  v.is_default = True and v.is_active = True left join inventory i on v.variant_id = i.variant_id left join product_feedback f on p.product_id = f.product_id left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id where p.is_active = 1';
+        let sql_query = 
+            `Select p.product_id,p.product_name as name,p.brand, r.rating, coalesce(r.review_count, 0) as reviewCount,
+             p.description,p.image_url,v.price,v.sku,i.quantity_on_hand as stock,
+               (Select group_concat(c.category_name order by c.category_name) from product_category pc 
+                join category c on pc.category_id = c.category_id
+                where pc.product_id = p.product_id) as categories
+             from product p
+             left join product_variant v on p.product_id = v.product_id and v.is_default = True and v.is_active = True
+             left join inventory i on v.variant_id = i.variant_id
+             left join (
+                Select product_id, round(AVG(rating), 1) as rating, count(f.feedback_id) as review_count 
+                from product_feedback f
+                group by product_id
+             ) r on p.product_id = r.product_id
+             where p.is_active = 1`;
         const params = [];
 
         if(category){
-            sql_query += ' and p.product_id in (select pc2.product_id from product_category pc2 left join category c2 on c2.category_id = pc2.category_id where c2.category_name = ?)';
+            sql_query += 
+                ` and p.product_id in 
+                  (
+                    select pc2.product_id 
+                    from product_category pc2 
+                    left join category c2 on c2.category_id = pc2.category_id 
+                    where c2.category_name = ?
+                )`;
             params.push(category);
         }
 
         if(search){
-            sql_query += ' and (p.product_name like ? or p.brand like ? or v.sku like ?)';
+            sql_query += ` and (p.product_name like ? or p.brand like ? or v.sku like ?)`;
             const term = `%${search}%`;
             params.push(term, term, term);
         }
 
-        sql_query += ' GROUP BY p.product_id, p.product_name, p.brand, p.description, p.image_url, v.price, v.sku, i.quantity_on_hand';
+        sql_query += ` GROUP BY p.product_id, p.product_name, p.brand, p.description, p.image_url, v.price, v.sku, i.quantity_on_hand, r.rating, r.review_count`;
 
         const [products] = await pool.execute(sql_query,params);
 
@@ -45,11 +68,21 @@ const getAllProducts = async(req, res) => {
 const getAllProductswithVariants = async(req,res) =>{
     try {
         const [products] = await pool.execute(
-            'Select p.product_id,p.product_name as name, p.brand, v.price, p.badge, round(AVG(f.rating), 1) as rating, count(Distinct f.feedback_id) as reviewCount,p.description, p.image_url, GROUP_CONCAT(DISTINCT c.category_name) as categories from product p left join product_variant v on p.product_id = v.product_id and v.is_default = True and v.is_active = True left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id left join product_feedback f on p.product_id = f.product_id where p.is_active = 1 GROUP BY p.product_id, p.product_name, p.brand, p.badge, v.price, p.description, p.image_url'
+            `Select p.product_id,p.product_name as name, p.brand, v.price, p.badge, round(AVG(f.rating), 1) as rating,
+             count(Distinct f.feedback_id) as reviewCount,p.description, p.image_url, GROUP_CONCAT(DISTINCT c.category_name) as categories 
+             from product p 
+             left join product_variant v on p.product_id = v.product_id and v.is_default = True and v.is_active = True 
+             left join product_category pc on p.product_id = pc.product_id 
+             left join category c on c.category_id = pc.category_id 
+             left join product_feedback f on p.product_id = f.product_id where p.is_active = 1 
+             GROUP BY p.product_id, p.product_name, p.brand, p.badge, v.price, p.description, p.image_url`
         );
     
         const [temp_variants] = await pool.execute(
-            "Select v.product_id, v.variant_id, v.variant_name, v.sku, v.price, i.quantity_on_hand as stock from product_variant v left join inventory i on v.variant_id = i.variant_id where v.is_active = True"
+            `Select v.product_id, v.variant_id, v.variant_name, v.sku, v.price, i.quantity_on_hand as stock 
+             from product_variant v 
+             left join inventory i on v.variant_id = i.variant_id 
+             where v.is_active = True`
         );
 
         const final_products = products.map(p =>{
@@ -77,7 +110,12 @@ const getProductByID = async(req, res) =>{
     try{
         //Using prepare statement to prevent data from SQL injection kind of issues.
         const [productRows] = await pool.execute(
-            "Select p.product_id, p.product_name as name, p.brand, p.badge, round(AVG(f.rating), 1) as rating, count(f.feedback_id) as reviewCount, p.description, p.image_url from product p left join product_feedback f on p.product_id = f.product_id where p.product_id = ? and p.is_active = True group by p.product_id, p.brand, p.badge, p.description, p.image_url", 
+            `Select p.product_id, p.product_name as name, p.brand, p.badge, round(AVG(f.rating), 1) as rating,
+             count(f.feedback_id) as reviewCount, p.description, p.image_url 
+             from product p 
+             left join product_feedback f on p.product_id = f.product_id 
+             where p.product_id = ? and p.is_active = True 
+             group by p.product_id, p.brand, p.badge, p.description, p.image_url`, 
             [
                 req.params.id
             ]
@@ -87,27 +125,53 @@ const getProductByID = async(req, res) =>{
             return res.status(404).json({error : "Product not found"});
         }    
 
-        const [temp_variants] = await pool.execute("Select v.variant_id,v.variant_name,v.price,v.sku,i.quantity_on_hand as stock from product_variant v left join inventory i on v.variant_id = i.variant_id where v.product_id = ? and v.is_active = True",
+        const [temp_variants] = await pool.execute(`Select v.variant_id,v.variant_name,v.price,v.sku,i.quantity_on_hand as stock 
+                                                     from product_variant v 
+                                                     left join inventory i on v.variant_id = i.variant_id 
+                                                     where v.product_id = ? and v.is_active = True`,
                                               [req.params.id]
                                              );
 
-        //Adding attributes to variants
-        for(const v of temp_variants){
-            const [var_attributes] = await pool.execute("Select attribute_name,attribute_value from product_attribute where variant_id = ?",
-                                                        [v.variant_id]
-            );
+        //Adding attributes to variants in single
+        const variantAttributes = new Map();
+        if(temp_variants.length > 0){
+            const variantIds = temp_variants.map((v) => v.variant_id);
+            const placeholders = temp_variants.map(() => "?").join(",");
 
-            v.attributes = var_attributes;
-        }      
+            const[attributeRows] = await pool.execute(
+                `Select variant_id, attribute_name, attribute_value from product_attribute
+                 where variant_id in (${placeholders})
+                 order by attribute_id`,
+                 variantIds
+            )
+
+            for(const a of attributeRows){
+                if(!variantAttributes.has(a.variant_id)){
+                    variantAttributes.set(a.variant_id,[])
+                }
+
+                variantAttributes.get(a.variant_id).push({
+                    attribute_name : a.attribute_name,
+                    attribute_value : a.attribute_value
+                });
+            }
+        }
         
         const variants = temp_variants.map(v =>({
-            ...v, price: v.price != null ? parseFloat(v.price) : null
+            ...v, 
+            price: v.price != null ? parseFloat(v.price) : null,
+            attributes : variantAttributes.get(v.variant_id) ?? []
         }));
 
         
-        //Taking categories of the product 
-        const [categories] =await pool.execute("Select c.category_name from product p left join product_category pc on p.product_id = pc.product_id left join category c on c.category_id = pc.category_id where p.product_id = ?",
-                                             [req.params.id]
+        //Taking categories of the product
+        const [categories] =await pool.execute(
+            `Select c.category_name 
+             from product p
+             join product_category pc on p.product_id = pc.product_id 
+             join category c on c.category_id = pc.category_id 
+             where p.product_id = ?`,
+            [req.params.id]
         )
 
         res.status(200).json({...productRows[0], categories, variants}); //as productRows return row and field, we only need data here and the variants.
@@ -119,13 +183,13 @@ const getProductByID = async(req, res) =>{
 
 const createProduct = async(req, res) => {
     const {
-           product_name,
-           brand,
-           badge,
-           categories,
-           image_url,
-           description,
-           variants,
+        product_name,
+        brand,
+        badge,
+        categories,
+        image_url,
+        description,
+        variants,
     } = req.body;
 
     if(!product_name || !categories || categories.length === 0){
@@ -142,7 +206,7 @@ const createProduct = async(req, res) => {
         await Connection.beginTransaction(); //Using transaction for keep ACID property
         
         //Generating product id
-        const product_id = await nextId(Connection, "product", "product_id", "PRD", 4);
+        const product_id = await nextId(Connection, "product", "product_id", "PRD", 3);
 
         await Connection.execute(
             "Insert into product (product_id, product_name, brand, badge, image_url, description, created_at) values (?,?,?,?,?,?,?)",
@@ -159,7 +223,7 @@ const createProduct = async(req, res) => {
         
         //Inserting category
         await insertCategories(Connection, product_id, categories);
-
+        
         //Inserting variants and attributes
         if(variants && Array.isArray(variants)){
             for(const[index,v] of variants.entries()){
@@ -168,11 +232,20 @@ const createProduct = async(req, res) => {
         }        
         
         await Connection.commit(); //Committing the transaction if all the queries are successful
-
+        
         res.status(201).json({message : "Product created successfully",product_id});
     }catch(e){
         console.error(e);
         await Connection.rollback(); //Rolling back the transaction in case of an error
+        
+        if(e instanceof ValidationError){
+            return res.status(400).json({error : e.message});
+        }
+        if(e.code === "ER_DUP_ENTRY"){
+            res.status(400).json({error : "SKU already exists"});
+            return;
+        }
+        
         res.status(500).json({error : e.message || "Failed to insert product"});
     } finally {
         await Connection.release(); //Releasing the database connection
@@ -189,13 +262,13 @@ const updateProduct = async(req, res) =>{
         up_product_description,
         up_variants
     } = req.body;
-
+    
     const Connection = await pool.getConnection();
     
     try{
         await Connection.beginTransaction();
         const [product] = await Connection.execute("Select * from product where product_id = ?", [req.params.id]); 
-
+        
         if(product.length === 0){
             await Connection.rollback();
             return res.status(404).json({error : "Product not found"});
@@ -212,24 +285,24 @@ const updateProduct = async(req, res) =>{
         if(up_product_badge !== undefined){
             product[0].badge = up_product_badge
         }
-
+        
         if(up_product_categories !== undefined){
             if(!Array.isArray(up_product_categories) || up_product_categories.length === 0){
                 throw new Error("At least one category is required");
             }
-
+            
             await Connection.execute(
                 "Delete from product_category where product_id = ?",
                 [req.params.id]
             )
-
+            
             await insertCategories(Connection, req.params.id, up_product_categories);
         }
         
         if(up_product_image !== undefined){
             product[0].image_url = up_product_image
         }
-
+        
         if(up_product_description !== undefined){
             product[0].description = up_product_description
         }
@@ -245,7 +318,7 @@ const updateProduct = async(req, res) =>{
                 req.params.id
             ]
         )
-
+        
         if(up_variants && Array.isArray(up_variants)){
             for(const v of up_variants){
                 if(v.variant_id && v.is_active === false){
@@ -256,21 +329,21 @@ const updateProduct = async(req, res) =>{
                             v.variant_id
                         ]
                     )
-
+                    
                     if(result.affectedRows === 0){
                         throw new Error(`Variant with id ${v.variant_id} not found for product ${req.params.id}`);
                     }
-
+                    
                     continue;
                 }
-
+                
                 if(!v.variant_id){  //new variant
                     await insertVariant(Connection, req.params.id, v, false);
                     continue;
                 }
-
+                
                 const {price, stock} = validateVariant(v);
-
+                
                 const [row] = await Connection.execute(
                     "Update product_variant set variant_name = ?, price = ?, sku = ? where product_id = ? and variant_id = ?",
                     [
@@ -281,11 +354,11 @@ const updateProduct = async(req, res) =>{
                         v.variant_id
                     ]
                 );
-
+                
                 if(row.affectedRows === 0){
                     throw new Error(`Variant with id ${v.variant_id} not found for product ${req.params.id}`);
                 }
-
+                
                 await Connection.execute(
                     "Update inventory set quantity_on_hand = ? where variant_id = ?",
                     [
@@ -293,7 +366,7 @@ const updateProduct = async(req, res) =>{
                         v.variant_id
                     ]
                 );
-
+                
                 await Connection.execute(
                     "Delete from product_attribute where variant_id = ?",
                     [
@@ -303,25 +376,25 @@ const updateProduct = async(req, res) =>{
                 await insertAttributes(Connection, v.variant_id, v.attributes);
             }
         }
-
+        
         const [active_variants] = await Connection.execute(
             "Select count(variant_id) as active_variant_count from product_variant where product_id = ? and is_active = true",
             [
                 req.params.id
             ]
         );
-
+        
         if(active_variants[0].active_variant_count === 0){
             throw new Error("At least one active variant is required for the product");
         }
-
+        
         const [default_variant] = await Connection.execute(
             "Select variant_id from product_variant where product_id = ? and is_default = true and is_active = true",
             [
                 req.params.id
             ]
         );
-
+        
         if(default_variant.length === 0){
             await Connection.execute(
                 "Update product_variant set is_default = true where product_id = ? and is_active = true order by variant_id limit 1",
@@ -330,20 +403,24 @@ const updateProduct = async(req, res) =>{
                 ]
             );
         }
-
+        
         await Connection.commit();
         res.status(200).json({message :"Product updated successfully"});
     }catch(err){
         console.error(err);
         await Connection.rollback();
-
+        
+        if(err instanceof ValidationError){
+            res.status(400).json({error : err.message});
+            return;
+        }
         if(err.code === "ER_DUP_ENTRY"){
             res.status(400).json({error : "SKU already exists"});
             return;
         }
-
+        
         res.status(500).json({error : err.message || "Failed to update product"});
-
+        
     } finally {
         await Connection.release();
     }
@@ -353,18 +430,22 @@ const deleteProduct =async(req, res) =>{
     try {
         //Checking if the product is in the db
         const [dummy_product] = await pool.execute("Select * from product where product_id = ?", [req.params.id]); 
-
+        
         if(dummy_product.length === 0){
             return res.status(404).json({error : "Product not found"});
         }  
-
-        await pool.execute("Delete from product where product_id = ?", [req.params.id]);
+        
+        await pool.execute(`
+            Update product set is_active = 0 where product_id = ?`,
+             [
+                req.params.id
+            ]
+        );
+        
         res.status(200).json({message : "Product successfully deleted"});
     } catch (err) {
         console.error(err);
         res.status(500).json({error : "Failed to delete product"});
-
-        //We don't have to catch foreign key delete errors because we handle that in schema.sql by cascade delete.
     }
 }
 
@@ -375,66 +456,113 @@ const getAllCategories = async (req, res)=>{
         if(category.length === 0){
             return res.status(404).json({"message": "Categories not Found..!"});
         }
-
+        
         res.status(200).json(category);
     } catch (err) {
         console.error(err);
         res.status(500).json({error : "Failed to fetch categories"});
     }
-
+    
 };
 
 const getProductReviews = async (req, res) => {
     try {
-        const { id } = req.params;
         const [reviews] = await pool.execute(
-            `SELECT pf.feedback_id, pf.product_id, pf.customer_id, pf.rating, pf.review, pf.created_at,
-                    COALESCE(CONCAT(u.first_name, ' ', u.last_name), 'Verified Customer') AS customer_name
-             FROM product_feedback pf
-             LEFT JOIN customer cust ON pf.customer_id = cust.customer_id
-             LEFT JOIN \`user\` u ON cust.user_id = u.user_id
-             WHERE pf.product_id = ?
-             ORDER BY pf.created_at DESC`,
-            [id]
+            `SELECT f.feedback_id, f.product_id, f.rating, f.review, f.created_at,
+                    CONCAT_WS(' ', u.first_name, CONCAT(LEFT(u.last_name, 1), '.')) AS customer_name
+             FROM product_feedback f
+             JOIN customer c ON c.customer_id = f.customer_id
+             JOIN \`user\` u ON u.user_id = c.user_id
+             WHERE f.product_id = ?
+             ORDER BY f.created_at DESC`,
+            [req.params.id]
         );
+
         res.status(200).json(reviews);
-    } catch (err) {
-        console.error("Error fetching product reviews:", err);
+    } catch (e) {
+        console.error(e);
         res.status(500).json({ error: "Failed to fetch product reviews" });
     }
 };
 
 const addProductFeedback = async (req, res) => {
+    const body = req.body || {};
+    const productId = req.params.id ?? body.productId ?? body.product_id;
+    const customer_id = body.customerId ?? body.customer_id;
+    const { rating } = body;
+    const review = body.review ?? "";
+
+    if (!productId) {
+        return res.status(400).json({ error: "Product ID is required" });
+    }
+    if (customer_id === undefined || customer_id === null || customer_id === "") {
+        return res.status(400).json({ error: "Customer ID is required" });
+    }
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+        return res.status(400).json({ error: "Rating must be a whole number between 1 and 5" });
+    }
+    if (typeof review !== "string") {
+        return res.status(400).json({ error: "Review must be string" });
+    }
+    const reviewText = review.trim();
+    if (reviewText.length > 500) {
+        return res.status(400).json({ error: "Review must be 500 characters or less" });
+    }
+
+    const Connection = await pool.getConnection();
     try {
-        const { productId, product_id, customerId, customer_id, rating, review } = req.body;
-        const targetProductId = productId || product_id;
-        const targetCustomerId = customerId || customer_id || "CUST005";
+        await Connection.beginTransaction();
 
-        if (!targetProductId || !rating) {
-            return res.status(400).json({ error: "Product ID and rating are required." });
+        const [customer] = await Connection.execute(
+            `SELECT customer_id FROM customer WHERE customer_id = ? FOR UPDATE`,
+            [customer_id]
+        );
+        if (customer.length === 0) {
+            await Connection.rollback();
+            return res.status(403).json({ error: "Customer not found" });
         }
-        const feedbackId = `FB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-        const [existing] = await pool.execute(
-            "SELECT feedback_id FROM product_feedback WHERE product_id = ? AND customer_id = ?",
-            [targetProductId, targetCustomerId]
+        const [prod] = await Connection.execute(
+            `SELECT 1 FROM product WHERE product_id = ? AND is_active = 1`,
+            [productId]
+        );
+        
+        if (prod.length === 0) {
+            await Connection.rollback();
+            return res.status(404).json({ error: "Product not found" });
+        }
+
+        const [existingFeedback] = await Connection.execute(
+            `SELECT feedback_id FROM product_feedback WHERE product_id = ? AND customer_id = ? LIMIT 1`,
+            [productId, customer[0].customer_id]
+        );
+        if (existingFeedback.length > 0) {
+            await Connection.rollback();
+            return res.status(409).json({ error: "You have already reviewed this product" });
+        }
+
+        const feedback_id = `FB${randomUUID()}`;
+        await Connection.execute(
+            `INSERT INTO product_feedback (feedback_id, product_id, customer_id, rating, review) VALUES (?,?,?,?,?)`,
+            [feedback_id, productId, customer[0].customer_id, rating, reviewText || null]
         );
 
-        if (existing.length > 0) {
-            await pool.execute(
-                "UPDATE product_feedback SET rating = ?, review = ?, created_at = NOW() WHERE product_id = ? AND customer_id = ?",
-                [Number(rating), review || null, targetProductId, targetCustomerId]
-            );
-        } else {
-            await pool.execute(
-                "INSERT INTO product_feedback (feedback_id, product_id, customer_id, rating, review, created_at) VALUES (?, ?, ?, ?, ?, NOW())",
-                [feedbackId, targetProductId, targetCustomerId, Number(rating), review || null]
-            );
+        await Connection.commit();
+        res.status(201).json({ success: true, message: "Review added successfully" });
+    } catch (e) {
+        await Connection.rollback();
+
+        if (e.code === "ER_DUP_ENTRY") {
+            return res.status(409).json({ error: "You have already reviewed this product" });
         }
-        res.status(200).json({ success: true, message: "Feedback submitted successfully!" });
-    } catch (err) {
-        console.error("Error saving feedback:", err);
-        res.status(500).json({ error: err.message || "Failed to submit feedback" });
+        if (e.code === "ER_NO_REFERENCED_ROW_2") {
+            return res.status(400).json({ error: "Invalid customer" });
+        }
+
+        console.error(e);
+        res.status(500).json({ error: "Failed to add review" });
+    } finally {
+        Connection.release();
     }
 };
 

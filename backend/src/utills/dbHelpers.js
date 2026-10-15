@@ -1,6 +1,6 @@
 const nextId = async(Connection, table, col, prefix, pad) =>{
     const [rows] = await Connection.execute(
-        `Select max(cast(substring(${col},4) as unsigned)) as last_num from ${table}`
+        `Select max(cast(substring(${col},${prefix.length + 1}) as unsigned)) as last_num from ${table}`
     );
 
     return `${prefix}${String((rows[0].last_num || 0) + 1).padStart(pad,"0")}`;
@@ -10,9 +10,9 @@ const validateVariant = (v) => {
   const price = parseFloat(v.price);
   const stock = parseInt(v.stock, 10) || 0;
 
-  if (!v.sku || !v.variant_name) throw new Error("Each variant needs a name and SKU");
-  if (isNaN(price) || price < 0) throw new Error(`Invalid price for variant ${v.variant_name}`);
-  if (stock < 0) throw new Error(`Invalid stock for variant ${v.variant_name}`);
+  if (!v.sku || !v.variant_name) throw new ValidationError("Each variant needs a name and SKU");
+  if (isNaN(price) || price < 0) throw new ValidationError(`Invalid price for variant ${v.variant_name}`);
+  if (stock < 0) throw new ValidationError(`Invalid stock for variant ${v.variant_name}`);
 
   return { price, stock };
 };
@@ -20,10 +20,19 @@ const validateVariant = (v) => {
 const insertAttributes = async(Connection, variant_id, attributes) => {
   if (!Array.isArray(attributes)) return;
 
+  //Checking for duplicates
+  const existing_attributes = new Set();
+
   for (const a of attributes) {
     const name = a.attribute_name?.trim();
     const value = a.attribute_value?.trim();
     if (!name || !value) continue;
+
+    const key = name.toLowerCase();
+    if(existing_attributes.has(key)){
+        throw new ValidationError(`Duplicate attribute "${name}" in the same variant`);
+    }
+    existing_attributes.add(key);
 
     const attribute_id = await nextId(Connection, "product_attribute", "attribute_id", "ATT", 4);
     
@@ -74,7 +83,7 @@ const insertCategories = async(Connection, product_id, categories) =>{
 
     if(categories){
         if(!Array.isArray(categories) || categories.length === 0){
-            throw new Error("At least one category is required")
+            throw new ValidationError("At least one category is required")
         }
 
         for(const cat of uniquesCategories){
@@ -87,9 +96,16 @@ const insertCategories = async(Connection, product_id, categories) =>{
             )
 
             if(catResult.affectedRows === 0){
-                throw new Error(`Invalid Category: ${cat}`);
+                throw new ValidationError(`Invalid Category: ${cat}`);
             }
         }
+    }
+}
+
+class ValidationError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = "ValidationError";
     }
 }
 
@@ -98,5 +114,6 @@ module.exports = {
     validateVariant,
     insertVariant,
     insertAttributes,
-    insertCategories
+    insertCategories,
+    ValidationError
 }

@@ -59,6 +59,10 @@ export function ShopProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
 
+  useEffect(() => {
+    setAuthReady(true);
+  }, []);
+
   const [selectedCity, setSelectedCity] = useState(TEXAS_CITIES[2]);
 
   const [cartItems, setCartItems] = useState([]);

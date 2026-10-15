@@ -102,11 +102,11 @@ export default function TopSellingProductsReportPage() {
                   </td>
 
                   <td className="py-4 px-4 font-bold text-emerald-700 text-sm">
-                    {p.units_sold} units
+                    {p.units_sold} {p.units_sold === 1 ? "unit" : "units"}
                   </td>
 
                   <td className="py-4 px-6 text-right font-mono font-black text-sm text-[#222222]">
-                    ${p.gross_revenue.toLocaleString("en-US")}
+                    ${p.gross_revenue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                 </tr>
               ))}

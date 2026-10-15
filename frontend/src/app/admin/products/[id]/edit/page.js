@@ -108,9 +108,11 @@ export default function EditProductPage({ params }) {
       ))  
     );
   };
-
+  
+  const visibleVariants = variants.filter(v => v.is_active !== false);
+  
   const removeVariant = (variantId) => {
-    if(variants.length <= 1){
+    if(visibleVariants.length <= 1){
       alert("At least one variant is required.");
       return;
     }
@@ -145,11 +147,11 @@ export default function EditProductPage({ params }) {
               (attri.attr_id === attrID ?
                   {...attri, [field]: value }
                   : attri
-              )
-          )}
-          : v
-        )
-      )
+                )
+              )}
+              : v
+            )
+          )
   }
 
   const removeAttribute = (variantId,attrID) => {
@@ -197,7 +199,7 @@ export default function EditProductPage({ params }) {
 
         if(!response.ok){
           const data = await response.json();
-          throw new Error(data.message || "Failed to update product");
+          throw new Error(data.error || "Failed to update product");
         }
 
         alert("Product updated successfully");
@@ -210,7 +212,6 @@ export default function EditProductPage({ params }) {
     }
   };
 
-  const visibleVariants = variants.filter(v => v.is_active !== false);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

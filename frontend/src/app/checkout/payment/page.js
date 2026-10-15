@@ -53,6 +53,7 @@ export default function CheckoutPaymentPage() {
     checkoutData,
     updateCheckoutData,
     clearCart,
+    setLastOrder,
   } = useShop();
 
   const activeItems = buyNowItem ? [buyNowItem] : cartItems;
@@ -89,7 +90,7 @@ export default function CheckoutPaymentPage() {
         setCopiedCard(brand);
         setTimeout(() => setCopiedCard(null), 2500);
       }
-    } catch {}
+    } catch { }
   };
 
   const finalizeOrder = async ({ paymentMethod, paymentStatus, transactionId, payhereCompleted }) => {
@@ -122,6 +123,48 @@ export default function CheckoutPaymentPage() {
       const result = await response.json();
 
       if (result.success) {
+        const orderId = result.orderID || `ORD-${Date.now()}`;
+        const orderSnapshot = {
+          orderId: orderId,
+          date: new Date().toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          }),
+          customer: {
+            name: currentUser?.name || `${currentUser?.first_name || ""} ${currentUser?.last_name || ""}`.trim() || "Customer",
+            email: currentUser?.email || "customer@brightbuy.tx",
+            phone: checkoutData.phoneNumber || currentUser?.phone || "",
+          },
+          deliveryMode: checkoutData.deliveryMode || "standard",
+          paymentMethod: paymentMethod === "Cash on Delivery" ? "cod" : "card",
+          paymentStatus: paymentStatus || "completed",
+          shippingCity: checkoutData.shippingCity || "Austin",
+          streetAddress: checkoutData.streetAddress || "",
+          zipCode: checkoutData.zipCode || "",
+          totalDue: totalDue,
+          estimatedArrival: estimate.estimatedDate ? `Estimated ${estimate.estimatedDate}` : `In ${estimate.days} Business Days`,
+          items: activeItems.map((item) => ({
+            product: {
+              name: item.product?.name || item.name || "Hardware Unit",
+              image: item.product?.image || item.image || "/placeholder.png",
+            },
+            variant: {
+              name: item.variant?.name || item.variant?.variant_name || "Standard",
+              sku: item.variant?.sku || "-",
+              price: item.variant?.price !== undefined ? parseFloat(item.variant.price) : (item.unitPrice || 0),
+            },
+            quantity: item.quantity || 1,
+          })),
+        };
+
+        if (typeof setLastOrder === "function") {
+          setLastOrder(orderSnapshot);
+        }
+        if (typeof window !== "undefined") {
+          localStorage.setItem("brightbuy_last_order", JSON.stringify(orderSnapshot));
+        }
+
         if (buyNowItem) {
           clearBuyNow();
         } else {
@@ -129,7 +172,7 @@ export default function CheckoutPaymentPage() {
         }
         setProcessing(false);
         setShowSimulator(false);
-        router.push("/checkout/confirmation");
+        router.push(`/checkout/confirmation?orderId=${orderId}`);
       } else {
         alert("Checkout failed: " + (result.error || result.message));
         setProcessing(false);
@@ -532,7 +575,7 @@ export default function CheckoutPaymentPage() {
             <div className="p-4 bg-[#F7F7F7] rounded-2xl border border-[#EBEBEB] space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-[#717171]">Merchant ID:</span>
-                <span className="font-mono font-bold text-[#222222]">{payhereData?.merchant_id || "1211149"}</span>
+                <span className="font-mono font-bold text-[#222222]">{payhereData?.merchant_id || "-"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#717171]">Order Reference:</span>

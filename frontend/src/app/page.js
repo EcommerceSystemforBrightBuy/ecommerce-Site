@@ -174,8 +174,14 @@ export default function HomePage() {
                   <div className="flex items-center justify-between font-bold text-[#222222]">
                     <span className="truncate pr-2 text-sm group-hover:text-[#FF385C] transition-colors">{product.name}</span>
                     <div className="flex items-center gap-1 shrink-0 text-xs">
-                      <Star className="w-3.5 h-3.5 fill-[#222222] text-[#222222]" />
-                      <span>{product.rating}</span>
+                      {Number(product.rating) > 0 ? (
+                        <>
+                          <Star className="w-3.5 h-3.5 fill-[#222222] text-[#222222]" />
+                          <span>{Number(product.rating).toFixed(1)}</span>
+                        </>
+                      ) : (
+                        <span className="text-[#717171] font-normal">No rating</span>
+                      )}
                     </div>
                   </div>
 

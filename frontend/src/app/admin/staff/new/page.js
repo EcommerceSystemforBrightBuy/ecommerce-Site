@@ -23,7 +23,7 @@ export default function OnboardStaffPage() {
     setSubmitting(true);
 
     try {
-      const response = await fetch("http://localhost:8000/api/staff", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/staff`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

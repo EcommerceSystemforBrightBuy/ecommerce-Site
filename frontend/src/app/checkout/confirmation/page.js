@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useShop } from "@/context/ShopContext";
 import { STORE_PICKUP_LOCATIONS } from "@/data/mockData";
 import {
@@ -13,43 +14,245 @@ import {
   Warehouse,
   ArrowRight,
   Printer,
+  PackageCheck,
+  ShoppingBag,
 } from "lucide-react";
 
-export default function OrderConfirmationPage() {
-  const { lastOrder } = useShop();
+function ConfirmationContent() {
+  const searchParams = useSearchParams();
+  const queryOrderId = searchParams.get("orderId");
+  const { lastOrder, currentUser } = useShop();
+
+  const [order, setOrder] = useState(lastOrder || null);
+  const [loading, setLoading] = useState(true);
 
   const singleStore = STORE_PICKUP_LOCATIONS[0];
 
-  const order = lastOrder || {
-    orderId: "BB-TX-2026-881294",
-    date: new Date().toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }),
-    customer: { name: "David Martinez", email: "david.m@austinmail.com" },
-    deliveryMode: "standard",
-    paymentMethod: "card",
-    shippingCity: "Austin",
-    streetAddress: "4500 Tech Ridge Blvd, Suite 200",
-    totalDue: 1424.42,
-    estimatedArrival: "In 5 Business Days",
-    items: [
-      {
-        product: { name: "ApexPro 16 5G Smartphone" },
-        variant: { name: "Space Black / 256GB", sku: "WH-APX-16-BLK-256", price: 999.0 },
-        quantity: 1,
-      },
-      {
-        product: { name: "AuraWave ANC Wireless Headphones" },
-        variant: { name: "Midnight Carbon", sku: "WH-SND-AWANC-MBLK", price: 349.0 },
-        quantity: 1,
-      },
-    ],
-  };
+  useEffect(() => {
+    let isMounted = true;
+
+    async function resolveOrder() {
+      // 1. If orderId is provided in URL, fetch live data from backend MySQL API
+      if (queryOrderId) {
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_URL || "http://localhost:8000";
+          const res = await fetch(`${baseUrl}/api/orders/${queryOrderId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.order) {
+              const liveOrder = {
+                orderId: data.order.order_id,
+                date: data.order.order_date
+                  ? new Date(data.order.order_date).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                  : new Date().toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  }),
+                customer: {
+                  name:
+                    data.order.customer_name ||
+                    currentUser?.name ||
+                    "Valued Customer",
+                  email:
+                    data.order.customer_email ||
+                    currentUser?.email ||
+                    "customer@brightbuy.tx",
+                  phone: data.order.customer_phone || "",
+                },
+                deliveryMode:
+                  data.order.delivery_mode === "Store Pickup" ? "pickup" : "standard",
+                paymentMethod: data.order.payment_method?.toLowerCase().includes("cash")
+                  ? "cod"
+                  : "card",
+                paymentStatus: data.order.payment_status || "completed",
+                shippingCity: data.order.city_name || "Austin",
+                streetAddress: data.order.address_line || "Standard Shipping Address",
+                totalDue: parseFloat(data.order.total_amount || 0),
+                estimatedArrival: data.order.estimated_delivery_date
+                  ? `Estimated ${new Date(data.order.estimated_delivery_date).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}`
+                  : "In 5 Business Days",
+                items: Array.isArray(data.items)
+                  ? data.items.map((it) => ({
+                    product: { name: it.product_name },
+                    variant: {
+                      name: it.variant_name || "Standard",
+                      sku: it.sku || "-",
+                      price: parseFloat(it.unit_price || 0),
+                    },
+                    quantity: it.quantity || 1,
+                  }))
+                  : [],
+              };
+
+              if (isMounted) {
+                setOrder(liveOrder);
+                setLoading(false);
+                return;
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching live order:", err);
+        }
+      }
+
+      // 2. Check lastOrder from ShopContext state
+      if (lastOrder && lastOrder.orderId) {
+        if (isMounted) {
+          setOrder(lastOrder);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 3. Check browser localStorage for last recorded order
+      if (typeof window !== "undefined") {
+        try {
+          const stored = localStorage.getItem("brightbuy_last_order");
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed && parsed.orderId) {
+              if (isMounted) {
+                setOrder(parsed);
+                setLoading(false);
+                return;
+              }
+            }
+          }
+        } catch { }
+      }
+
+      // 4. If current user is logged in, fetch their latest real order from DB
+      if (currentUser?.customerId) {
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_URL || "http://localhost:8000";
+          const res = await fetch(`${baseUrl}/api/orders?customer_id=${currentUser.customerId}`);
+          if (res.ok) {
+            const list = await res.json();
+            if (Array.isArray(list) && list.length > 0) {
+              const latest = list[0];
+              // Fetch full detail for this latest order
+              const detailRes = await fetch(`${baseUrl}/api/orders/${latest.order_id}`);
+              if (detailRes.ok) {
+                const detailData = await detailRes.json();
+                if (detailData.success && detailData.order) {
+                  const dbOrder = {
+                    orderId: detailData.order.order_id,
+                    date: detailData.order.order_date
+                      ? new Date(detailData.order.order_date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                      : "Recent",
+                    customer: {
+                      name: detailData.order.customer_name || currentUser.name,
+                      email: detailData.order.customer_email || currentUser.email,
+                    },
+                    deliveryMode:
+                      detailData.order.delivery_mode === "Store Pickup" ? "pickup" : "standard",
+                    paymentMethod: detailData.order.payment_method?.toLowerCase().includes("cash")
+                      ? "cod"
+                      : "card",
+                    shippingCity: detailData.order.city_name || "Austin",
+                    streetAddress: detailData.order.address_line || "",
+                    totalDue: parseFloat(detailData.order.total_amount || 0),
+                    estimatedArrival: detailData.order.estimated_delivery_date
+                      ? `Estimated ${new Date(detailData.order.estimated_delivery_date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}`
+                      : "In 5 Business Days",
+                    items: Array.isArray(detailData.items)
+                      ? detailData.items.map((it) => ({
+                        product: { name: it.product_name },
+                        variant: {
+                          name: it.variant_name || "Standard",
+                          sku: it.sku || "-",
+                          price: parseFloat(it.unit_price || 0),
+                        },
+                        quantity: it.quantity || 1,
+                      }))
+                      : [],
+                  };
+
+                  if (isMounted) {
+                    setOrder(dbOrder);
+                    setLoading(false);
+                    return;
+                  }
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching customer recent order:", err);
+        }
+      }
+
+      if (isMounted) {
+        setLoading(false);
+      }
+    }
+
+    resolveOrder();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [queryOrderId, lastOrder, currentUser]);
+
+  if (loading) {
+    return (
+      <main className="max-w-3xl mx-auto px-4 sm:px-8 py-20 text-center space-y-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-3 border-[#FF385C]/20 border-t-[#FF385C] mx-auto" />
+        <p className="text-xs font-bold text-[#717171]">Retrieving your Texas Central Warehouse order record...</p>
+      </main>
+    );
+  }
+
+  if (!order) {
+    return (
+      <main className="max-w-md mx-auto my-16 p-8 text-center bg-white rounded-3xl border border-[#DDDDDD] shadow-sm space-y-4">
+        <div className="w-14 h-14 bg-neutral-100 text-neutral-500 rounded-full flex items-center justify-center mx-auto">
+          <ShoppingBag className="w-7 h-7" />
+        </div>
+        <h2 className="text-xl font-black text-[#222222]">No Recent Order Found</h2>
+        <p className="text-xs text-[#717171]">
+          We could not locate an active order confirmation in this session.
+        </p>
+        <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
+          <Link
+            href="/products"
+            className="px-5 py-2.5 bg-[#222222] text-white text-xs font-bold rounded-full hover:bg-black transition-colors"
+          >
+            Browse Products
+          </Link>
+          {currentUser && (
+            <Link
+              href="/account/orders"
+              className="px-5 py-2.5 bg-white border border-[#DDDDDD] text-[#222222] text-xs font-bold rounded-full hover:border-[#222222] transition-colors"
+            >
+              View Order History
+            </Link>
+          )}
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main className="max-w-3xl mx-auto px-4 sm:px-8 py-12 space-y-8">
+    <main className="max-w-3xl mx-auto px-4 sm:px-8 py-12 space-y-8 animate-fade-in">
       {/* Success Badge */}
       <div className="border border-[#DDDDDD] rounded-3xl p-8 text-center space-y-3 bg-white shadow-sm">
         <div className="w-14 h-14 bg-[#FF385C] text-white rounded-full flex items-center justify-center mx-auto shadow-md">
@@ -57,7 +260,7 @@ export default function OrderConfirmationPage() {
         </div>
         <h1 className="text-3xl font-black text-[#222222]">Order Confirmed &amp; Reserved</h1>
         <p className="text-xs text-[#717171] max-w-md mx-auto">
-          Your order is securely registered in BrightBuy Texas database. Central warehouse stock
+          Your order is securely registered in the BrightBuy Texas database. Central warehouse stock
           has been atomically decremented.
         </p>
         <div className="inline-block mt-2 px-4 py-1.5 bg-[#F7F7F7] font-mono text-xs font-bold text-[#222222] border border-[#DDDDDD] rounded-full">
@@ -98,7 +301,7 @@ export default function OrderConfirmationPage() {
             <div className="text-[#717171] text-xs mt-0.5">
               {order.deliveryMode === "pickup"
                 ? singleStore.address
-                : `${order.streetAddress}`}
+                : order.streetAddress || "Registered Texas Delivery Address"}
             </div>
           </div>
 
@@ -110,7 +313,7 @@ export default function OrderConfirmationPage() {
             <div className="text-[#717171] text-xs mt-0.5">
               {order.deliveryMode === "pickup"
                 ? "Ready in 24 hours at Central Store counter"
-                : "Dispatched from Central Warehouse in Austin"}
+                : "Dispatched from Central Warehouse in Austin (Free Statewide Delivery)"}
             </div>
           </div>
         </div>
@@ -132,7 +335,7 @@ export default function OrderConfirmationPage() {
             )}
           </div>
           <div className="text-[#222222] font-bold text-xs pt-1">
-            Total Paid: ${order.totalDue?.toFixed(2) || "0.00"}
+            Total Paid: ${Number(order.totalDue || 0).toFixed(2)}
           </div>
         </div>
 
@@ -151,19 +354,27 @@ export default function OrderConfirmationPage() {
           Purchased Items &amp; Warehouse SKU Mapping
         </div>
         <div className="divide-y divide-[#EBEBEB]">
-          {order.items?.map((item, idx) => (
-            <div key={idx} className="py-2.5 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-[#222222]">{item.product.name}</span>
-                <div className="text-xs text-[#717171]">
-                  {item.variant.name} • SKU: {item.variant.sku} × {item.quantity}
+          {order.items && order.items.length > 0 ? (
+            order.items.map((item, idx) => (
+              <div key={idx} className="py-2.5 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-[#222222]">
+                    {item.product?.name || "Hardware Unit"}
+                  </span>
+                  <div className="text-xs text-[#717171]">
+                    {item.variant?.name || "Standard"} • SKU: {item.variant?.sku || "-"} × {item.quantity || 1}
+                  </div>
                 </div>
+                <span className="font-bold text-[#222222]">
+                  ${((item.variant?.price || 0) * (item.quantity || 1)).toFixed(2)}
+                </span>
               </div>
-              <span className="font-bold text-[#222222]">
-                ${(item.variant.price * item.quantity).toFixed(2)}
-              </span>
+            ))
+          ) : (
+            <div className="py-3 text-xs text-[#717171] italic">
+              Order items recorded in central warehouse manifest.
             </div>
-          ))}
+          )}
         </div>
       </div>
 
@@ -171,7 +382,7 @@ export default function OrderConfirmationPage() {
       <div className="flex items-center justify-between pt-4 border-t border-[#EBEBEB]">
         <button
           onClick={() => window.print()}
-          className="inline-flex items-center gap-2 text-xs font-bold text-[#222222] hover:underline"
+          className="inline-flex items-center gap-2 text-xs font-bold text-[#222222] hover:underline cursor-pointer"
         >
           <Printer className="w-4 h-4" />
           <span>Print Receipt</span>
@@ -186,5 +397,20 @@ export default function OrderConfirmationPage() {
         </Link>
       </div>
     </main>
+  );
+}
+
+export default function OrderConfirmationPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="max-w-3xl mx-auto px-4 sm:px-8 py-20 text-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-3 border-[#FF385C]/20 border-t-[#FF385C] mx-auto" />
+          <p className="text-xs font-bold text-[#717171] mt-3">Loading order confirmation...</p>
+        </main>
+      }
+    >
+      <ConfirmationContent />
+    </Suspense>
   );
 }
