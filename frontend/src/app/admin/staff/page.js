@@ -30,7 +30,7 @@ export default function AdminStaffPage() {
     try {
       setLoading(true);
       setActionError("");
-      const response = await fetch("http://localhost:8000/api/staff");
+      const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/staff`);
       if (!response.ok) throw new Error("Failed to fetch staff");
       const data = await response.json();
       setStaffList(data);
@@ -65,7 +65,7 @@ export default function AdminStaffPage() {
 
     try {
       setActionError("");
-      const response = await fetch(`http://localhost:8000/api/staff/${deleteStaff.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/staff/${deleteStaff.id}`, {
         method: "DELETE",
       });
 

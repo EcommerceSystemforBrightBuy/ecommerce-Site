@@ -90,7 +90,7 @@ export default function CheckoutPaymentPage() {
         setCopiedCard(brand);
         setTimeout(() => setCopiedCard(null), 2500);
       }
-    } catch {}
+    } catch { }
   };
 
   const finalizeOrder = async ({ paymentMethod, paymentStatus, transactionId, payhereCompleted }) => {

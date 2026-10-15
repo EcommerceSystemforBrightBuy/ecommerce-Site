@@ -24,7 +24,7 @@ export default function EditStaffPage({ params }) {
   useEffect(() => {
     const fetchStaff = async () => {
       try {
-        const response = await fetch("http://localhost:8000/api/staff");
+        const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/staff`);
         if (!response.ok) throw new Error("Could not load staff record.");
         const staffList = await response.json();
         const record = staffList.find((item) => item.id === unwrappedParams.id);
@@ -53,7 +53,7 @@ export default function EditStaffPage({ params }) {
     setSubmitting(true);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/staff/${unwrappedParams.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/staff/${unwrappedParams.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, role, phone, hub, avatar_url: avatar, password }),

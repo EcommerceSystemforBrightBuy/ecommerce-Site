@@ -24,8 +24,8 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 |--------|--------|--------|
 | Member 1 – Kalai | Products, Variants & Catalogue | Done |
 | Member 2 - Hasin Amanda| Order Processing & Atomic Checkout (End-to-End) | Done |
-| Member 3 – Shashindu Nimsara | Customer Auth, Profile & Cart | Done |
-| Member 4 | _TODO_ | _TODO_ |
+| Member 3 | Auth, Customer & Cart | _TODO_ |
+| Member 4 - Thimira Nuraj | Staff Personnel & Central Warehouse Inventory | Done |
 | Member 5 - Gayashan | Management Reports (SQL views and admin report pages) | Done |
 
 ### Member 1 – Kalaippiriyan J(240308R): Products, Variants & Catalogue
@@ -165,8 +165,37 @@ BrightBuy is a database-driven e-commerce system for Texas customers, built as a
 - There is no token (JWT) or session check on the server. The API trusts the `customerId` it is sent, so a customer's profile and cart could be read by anyone who knows the id. Adding JWT and an auth middleware is the next step.
 - There is no password reset, email verification or limit on login attempts.
 
-### Member 4: _TODO_
-_Features, API routes, DB objects, pages._
+### Member 4: Staff Personnel & Central Warehouse Inventory (End-to-End)
+
+**Responsibility**
+- Staff onboarding, roles, status tracking, and directory CRUD.
+- Central Texas Warehouse SKU inventory count monitoring, rapid adjustments, and transaction audit logging.
+
+**Features**
+- **Warehouse Inventory & Stock Adjustments**: Real-time warehouse catalog view displaying all SKUs, stock levels, and replenishment status with quick one-click increment/decrement adjustments (`+10`, `-1`). Every adjustment automatically records an audit log in `inventory_transaction`.
+- **Dynamic Delivery Transit Days Calculation**: Stored function `fn_calculate_delivery_days` calculates delivery transit duration based on destination Texas city tiers (5 business days for main hubs vs 7 business days for regional hubs, with an additional +3 day buffer if stock is depleted).
+- **Staff Personnel Management**: Complete lifecycle directory for warehouse staff and administrators (view hub staff, onboard new personnel, edit profile details/hubs, and deactivate/delete staff records) updating Aiven MySQL live.
+
+**API routes** (`/api/inventory`, `/api/staff`)
+
+| Method | Route | Purpose |
+|--------|-------|---------|
+| GET | `/api/inventory` | List all warehouse variant SKUs, product names, and quantity on hand |
+| PUT | `/api/inventory/:sku` | Adjust stock count (`+10`, `-1`, or custom delta) & insert audit entry in `inventory_transaction` |
+| GET | `/api/staff` | List all hub personnel with profiles and active status |
+| POST | `/api/staff` | Onboard new staff member (`user` + `staff_profile`) |
+| PUT | `/api/staff/:id` | Update staff details, job title, hub location, or status |
+| DELETE | `/api/staff/:id` | Remove or deactivate staff member |
+
+**Database work**
+- **Stored Functions**: `fn_calculate_delivery_days(p_city_id, p_in_stock)` in `backend/database/functions.sql` calculating dynamic Texas delivery estimates.
+- **Transactional Queries**: Atomic inventory updates and transaction logging (`inventory`, `inventory_transaction`).
+- **Tables involved**: `staff_profile`, `user`, `inventory`, `inventory_transaction`, `city`, `product_variant`.
+
+**Main files**
+- Frontend Admin Inventory: `src/app/admin/inventory/page.js` (stock list and `+10`/`-1` adjustment actions)
+- Frontend Admin Staff: `src/app/admin/staff/page.js` (directory list), `src/app/admin/staff/new/page.js` (onboarding form), `src/app/admin/staff/[id]/edit/page.js` (profile editor)
+- Backend: `src/controllers/staffController.js`, `src/routes/staffRoutes.js`, `database/functions.sql`
 
 ### Member 5 – Abeykoon AJPGP. (240009C): Executive Management Reports
 
